@@ -125,7 +125,10 @@ public class IssuerSignedJWTTest {
         JsonNode claimSet = TestUtils.readClaimSet(getClass(), "sdjwt/s6.1-holder-claims.json");
 
         com.adorsys.ssi.sdjwt.DisclosureSpec disclosureSpec = com.adorsys.ssi.sdjwt.DisclosureSpec.builder().build();
-        com.adorsys.ssi.sdjwt.SdJwt sdJwt = com.adorsys.ssi.sdjwt.SdJwt.builder().withDisclosureSpec(disclosureSpec).withClaimSet(claimSet).build();
+        com.adorsys.ssi.sdjwt.SdJwt sdJwt = com.adorsys.ssi.sdjwt.SdJwt.builder()
+                .withDisclosureSpec(disclosureSpec)
+                .withClaimSet(claimSet)
+                .build();
         com.adorsys.ssi.sdjwt.IssuerSignedJWT jwt = sdJwt.getIssuerSignedJWT();
 
         // testing with jwt not containing 'exp' claim
