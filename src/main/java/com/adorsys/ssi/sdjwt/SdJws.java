@@ -2,6 +2,8 @@
 package com.adorsys.ssi.sdjwt;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Objects;
 
 import org.keycloak.common.VerificationException;
@@ -69,13 +71,27 @@ public class SdJws {
     public void verifySignature(SignatureVerifierContext verifier) throws VerificationException {
         Objects.requireNonNull(verifier, "verifier must not be null");
         try {
-            if (!verifier.verify(jwsInput.getEncodedSignatureInput().getBytes("UTF-8"), jwsInput.getSignature())) {
+            if (!verifier.verify(jwsInput.getEncodedSignatureInput().getBytes(StandardCharsets.UTF_8), jwsInput.getSignature())) {
                 throw new VerificationException("Invalid jws signature");
             }
         } catch (Exception e) {
             throw new VerificationException(e);
         }
     }
+
+    public void verifyExpClaim() throws VerificationException {
+        var expClaim = payload.get("exp");
+        if (expClaim == null || !expClaim.isNumber()) {
+            throw new VerificationException("Missing or invalid 'exp' claim");
+        }
+
+        long expTime = expClaim.asLong();
+        long currentTime = Instant.now().getEpochSecond();
+        if (currentTime >= expTime) {
+            throw new VerificationException("jwt has expired");
+        }
+    }
+
 
     private static final JWSInput parse(String jwsString) {
         try {

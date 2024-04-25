@@ -4,6 +4,7 @@ package com.adorsys.ssi.sdjwt;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.Test;
+import org.keycloak.common.VerificationException;
 import org.keycloak.sdjwt.DisclosureSpec;
 import org.keycloak.sdjwt.IssuerSignedJWT;
 import org.keycloak.sdjwt.SdJwt;
@@ -11,6 +12,7 @@ import org.keycloak.sdjwt.SdJwtClaim;
 import org.keycloak.sdjwt.VisibleSdJwtClaim;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -116,5 +118,34 @@ public class IssuerSignedJWTTest {
 
         JsonNode expected = TestUtils.readClaimSet(getClass(), "sdjwt/s3.3-issuer-payload.json");
         assertEquals(expected, jwt.getPayload());
+    }
+
+    @Test
+    public void testIssuerSignedJWTWithInvalidExpClaim() throws VerificationException {
+        JsonNode claimSet = TestUtils.readClaimSet(getClass(), "sdjwt/s6.1-holder-claims.json");
+
+        com.adorsys.ssi.sdjwt.DisclosureSpec disclosureSpec = com.adorsys.ssi.sdjwt.DisclosureSpec.builder().build();
+        com.adorsys.ssi.sdjwt.SdJwt sdJwt = com.adorsys.ssi.sdjwt.SdJwt.builder().withDisclosureSpec(disclosureSpec).withClaimSet(claimSet).build();
+        com.adorsys.ssi.sdjwt.IssuerSignedJWT jwt = sdJwt.getIssuerSignedJWT();
+
+        // testing with jwt not containing 'exp' claim
+        assertThrows(VerificationException.class, jwt::verifyExpClaim);
+
+        ObjectNode newClaimSet = (ObjectNode) claimSet;
+        newClaimSet.put("exp", Instant.now().getEpochSecond());
+
+        sdJwt = com.adorsys.ssi.sdjwt.SdJwt.builder().withDisclosureSpec(disclosureSpec).withClaimSet(newClaimSet).build();
+        jwt = sdJwt.getIssuerSignedJWT();
+
+        //testing with expired jwt
+        assertThrows(VerificationException.class, jwt::verifyExpClaim);
+
+        newClaimSet.put("exp", Instant.now().plusSeconds(60).getEpochSecond());
+
+        sdJwt = com.adorsys.ssi.sdjwt.SdJwt.builder().withDisclosureSpec(disclosureSpec).withClaimSet(newClaimSet).build();
+        jwt = sdJwt.getIssuerSignedJWT();
+
+        //testing with non expired jwt
+        jwt.verifyExpClaim();
     }
 }
