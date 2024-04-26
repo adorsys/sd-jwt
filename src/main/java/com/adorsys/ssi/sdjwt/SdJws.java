@@ -71,7 +71,7 @@ public class SdJws {
     public void verifySignature(SignatureVerifierContext verifier) throws VerificationException {
         Objects.requireNonNull(verifier, "verifier must not be null");
         try {
-            if (!verifier.verify(jwsInput.getEncodedSignatureInput().getBytes(StandardCharsets.UTF_8), jwsInput.getSignature())) {
+            if (!verifier.verify(jwsInput.getEncodedSignatureInput().getBytes("UTF-8"), jwsInput.getSignature())) {
                 throw new VerificationException("Invalid jws signature");
             }
         } catch (Exception e) {
@@ -80,18 +80,25 @@ public class SdJws {
     }
 
     public void verifyExpClaim() throws VerificationException {
-        var expClaim = payload.get("exp");
-        if (expClaim == null || !expClaim.isNumber()) {
-            throw new VerificationException("Missing or invalid 'exp' claim");
-        }
-
-        long expTime = expClaim.asLong();
-        long currentTime = Instant.now().getEpochSecond();
-        if (currentTime >= expTime) {
-            throw new VerificationException("jwt has expired");
-        }
+        verifyTimeClaim("exp", "jwt has expired");
     }
 
+    public void verifyNotBeforeClaim() throws VerificationException {
+        verifyTimeClaim("nbf", "jwt not valid yet");
+    }
+
+    private void verifyTimeClaim(String claimName, String errorMessage) throws VerificationException {
+        var claim = payload.get(claimName);
+        if (claim == null || !claim.isNumber()) {
+            throw new VerificationException("Missing or invalid '" + claimName + "' claim");
+        }
+
+        long claimTime = claim.asLong();
+        long currentTime = Instant.now().getEpochSecond();
+        if (("exp".equals(claimName) && currentTime >= claimTime) || ("nbf".equals(claimName) && currentTime < claimTime)) {
+            throw new VerificationException(errorMessage);
+        }
+    }
 
     private static final JWSInput parse(String jwsString) {
         try {

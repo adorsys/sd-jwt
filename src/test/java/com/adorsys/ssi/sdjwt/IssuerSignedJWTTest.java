@@ -123,32 +123,53 @@ public class IssuerSignedJWTTest {
     @Test
     public void testIssuerSignedJWTWithInvalidExpClaim() throws VerificationException {
         JsonNode claimSet = TestUtils.readClaimSet(getClass(), "sdjwt/s6.1-holder-claims.json");
+        com.adorsys.ssi.sdjwt.IssuerSignedJWT jwt = createJWT(claimSet);
 
+        // Testing with jwt not containing 'exp' claim
+        assertThrows(VerificationException.class, jwt::verifyExpClaim);
+
+        ObjectNode newClaimSet = (ObjectNode) claimSet;
+        newClaimSet.put("exp", Instant.now().getEpochSecond());
+        jwt = createJWT(newClaimSet);
+
+        // Testing with expired jwt
+        assertThrows(VerificationException.class, jwt::verifyExpClaim);
+
+        newClaimSet.put("exp", Instant.now().plusSeconds(60).getEpochSecond());
+        jwt = createJWT(newClaimSet);
+
+        // Testing with non-expired jwt
+        jwt.verifyExpClaim();
+    }
+
+    @Test
+    public void testIssuerSignedJWTWithInvalidNbfClaim() throws VerificationException {
+        JsonNode claimSet = TestUtils.readClaimSet(getClass(), "sdjwt/s6.1-holder-claims.json");
+        com.adorsys.ssi.sdjwt.IssuerSignedJWT jwt = createJWT(claimSet);
+
+        // Testing with jwt not containing 'nbf' claim
+        assertThrows(VerificationException.class, jwt::verifyNotBeforeClaim);
+
+        ObjectNode newClaimSet = (ObjectNode) claimSet;
+        newClaimSet.put("nbf", Instant.now().plusSeconds(60).getEpochSecond());
+        jwt = createJWT(newClaimSet);
+
+        // Verifying jwt too early
+        assertThrows(VerificationException.class, jwt::verifyNotBeforeClaim);
+
+        newClaimSet.put("nbf", Instant.now().getEpochSecond());
+        jwt = createJWT(newClaimSet);
+
+        // Verifying jwt after the nbf time was passed
+        jwt.verifyNotBeforeClaim();
+    }
+
+    private com.adorsys.ssi.sdjwt.IssuerSignedJWT createJWT(JsonNode claimSet) {
         com.adorsys.ssi.sdjwt.DisclosureSpec disclosureSpec = com.adorsys.ssi.sdjwt.DisclosureSpec.builder().build();
         com.adorsys.ssi.sdjwt.SdJwt sdJwt = com.adorsys.ssi.sdjwt.SdJwt.builder()
                 .withDisclosureSpec(disclosureSpec)
                 .withClaimSet(claimSet)
                 .build();
-        com.adorsys.ssi.sdjwt.IssuerSignedJWT jwt = sdJwt.getIssuerSignedJWT();
-
-        // testing with jwt not containing 'exp' claim
-        assertThrows(VerificationException.class, jwt::verifyExpClaim);
-
-        ObjectNode newClaimSet = (ObjectNode) claimSet;
-        newClaimSet.put("exp", Instant.now().getEpochSecond());
-
-        sdJwt = com.adorsys.ssi.sdjwt.SdJwt.builder().withDisclosureSpec(disclosureSpec).withClaimSet(newClaimSet).build();
-        jwt = sdJwt.getIssuerSignedJWT();
-
-        //testing with expired jwt
-        assertThrows(VerificationException.class, jwt::verifyExpClaim);
-
-        newClaimSet.put("exp", Instant.now().plusSeconds(60).getEpochSecond());
-
-        sdJwt = com.adorsys.ssi.sdjwt.SdJwt.builder().withDisclosureSpec(disclosureSpec).withClaimSet(newClaimSet).build();
-        jwt = sdJwt.getIssuerSignedJWT();
-
-        //testing with non expired jwt
-        jwt.verifyExpClaim();
+        return sdJwt.getIssuerSignedJWT();
     }
 }
