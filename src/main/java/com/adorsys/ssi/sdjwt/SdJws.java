@@ -2,7 +2,6 @@
 package com.adorsys.ssi.sdjwt;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Objects;
 
