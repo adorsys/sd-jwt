@@ -104,7 +104,7 @@ public class SdJws {
         }
     }
 
-    private static final JWSInput parse(String jwsString) {
+    private static JWSInput parse(String jwsString) {
         try {
             return new JWSInput(Objects.requireNonNull(jwsString, "jwsString must not be null"));
         } catch (JWSInputException e) {
@@ -112,7 +112,7 @@ public class SdJws {
         }
     }
 
-    private static final JsonNode readPayload(JWSInput jwsInput) {
+    private static JsonNode readPayload(JWSInput jwsInput) {
         try {
             return SdJwtUtils.mapper.readTree(jwsInput.getContent());
         } catch (IOException e) {
