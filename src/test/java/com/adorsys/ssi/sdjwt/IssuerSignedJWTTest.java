@@ -4,14 +4,12 @@ package com.adorsys.ssi.sdjwt;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.Test;
-import org.keycloak.common.VerificationException;
 import org.keycloak.sdjwt.DisclosureSpec;
 import org.keycloak.sdjwt.IssuerSignedJWT;
 import org.keycloak.sdjwt.SdJwt;
 import org.keycloak.sdjwt.SdJwtClaim;
 import org.keycloak.sdjwt.VisibleSdJwtClaim;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
