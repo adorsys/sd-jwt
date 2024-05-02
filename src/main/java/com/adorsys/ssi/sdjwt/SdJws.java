@@ -2,6 +2,7 @@
 package com.adorsys.ssi.sdjwt;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Objects;
 
@@ -33,6 +34,10 @@ public class SdJws {
 
     public JsonNode getPayload() {
         return payload;
+    }
+
+    public JWSInput getJwsInput() {
+        return jwsInput;
     }
 
     public String getJwsString() {
@@ -70,7 +75,7 @@ public class SdJws {
     public void verifySignature(SignatureVerifierContext verifier) throws VerificationException {
         Objects.requireNonNull(verifier, "verifier must not be null");
         try {
-            if (!verifier.verify(jwsInput.getEncodedSignatureInput().getBytes("UTF-8"), jwsInput.getSignature())) {
+            if (!verifier.verify(jwsInput.getEncodedSignatureInput().getBytes(StandardCharsets.UTF_8), jwsInput.getSignature())) {
                 throw new VerificationException("Invalid jws signature");
             }
         } catch (Exception e) {
@@ -87,7 +92,7 @@ public class SdJws {
     }
 
     private void verifyTimeClaim(String claimName, String errorMessage) throws VerificationException {
-        var claim = payload.get(claimName);
+        JsonNode claim = payload.get(claimName);
         if (claim == null || !claim.isNumber()) {
             throw new VerificationException("Missing or invalid '" + claimName + "' claim");
         }

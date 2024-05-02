@@ -11,7 +11,6 @@ import org.keycloak.sdjwt.SdJwt;
 import org.keycloak.sdjwt.SdJwtClaim;
 import org.keycloak.sdjwt.VisibleSdJwtClaim;
 
-import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,22 +22,18 @@ import static org.junit.Assert.*;
  */
 public class IssuerSignedJWTTest {
     /**
-     * If issuer decides to disclose everything, paylod of issuer signed JWT should
+     * If issuer decides to disclose everything, payload of issuer signed JWT should
      * be same as the claim set.
-     * 
      * This is essential for backward compatibility with non sd based jwt issuance.
-     * 
-     * @throws IOException
+     *
      */
     @Test
     public void testIssuerSignedJWTPayloadWithValidClaims() {
         JsonNode claimSet = TestUtils.readClaimSet(getClass(), "sdjwt/s6.1-holder-claims.json");
 
         List<org.keycloak.sdjwt.SdJwtClaim> claims = new ArrayList<>();
-        claimSet.fields().forEachRemaining(entry -> {
-            claims.add(
-                    org.keycloak.sdjwt.VisibleSdJwtClaim.builder().withClaimName(entry.getKey()).withClaimValue(entry.getValue()).build());
-        });
+        claimSet.fields().forEachRemaining(entry -> claims.add(
+                VisibleSdJwtClaim.builder().withClaimName(entry.getKey()).withClaimValue(entry.getValue()).build()));
 
         org.keycloak.sdjwt.IssuerSignedJWT jwt = org.keycloak.sdjwt.IssuerSignedJWT.builder().withClaims(claims).build();
 
@@ -46,32 +41,28 @@ public class IssuerSignedJWTTest {
     }
 
     @Test
-    public void testIssuerSignedJWTPayloadThrowsExceptionForDuplicateClaims() throws IOException {
+    public void testIssuerSignedJWTPayloadThrowsExceptionForDuplicateClaims() {
         JsonNode claimSet = TestUtils.readClaimSet(getClass(), "sdjwt/s6.1-holder-claims.json");
 
         List<SdJwtClaim> claims = new ArrayList<>();
 
         // First fill claims
-        claimSet.fields().forEachRemaining(entry -> {
-            claims.add(
-                    org.keycloak.sdjwt.VisibleSdJwtClaim.builder().withClaimName(entry.getKey()).withClaimValue(entry.getValue()).build());
-        });
+        claimSet.fields().forEachRemaining(entry -> claims.add(
+                VisibleSdJwtClaim.builder().withClaimName(entry.getKey()).withClaimValue(entry.getValue()).build()));
 
         // First fill claims
-        claimSet.fields().forEachRemaining(entry -> {
-            claims.add(
-                    VisibleSdJwtClaim.builder().withClaimName(entry.getKey()).withClaimValue(entry.getValue()).build());
-        });
+        claimSet.fields().forEachRemaining(entry -> claims.add(
+                VisibleSdJwtClaim.builder().withClaimName(entry.getKey()).withClaimValue(entry.getValue()).build()));
 
         // All claims are duplicate.
-        assertTrue(claims.size() == claimSet.size() * 2);
+        assertEquals(claims.size(), claimSet.size() * 2);
 
         // Expecting exception
         assertThrows(IllegalArgumentException.class, () -> org.keycloak.sdjwt.IssuerSignedJWT.builder().withClaims(claims).build());
     }
 
     @Test
-    public void testIssuerSignedJWTWithUndiclosedClaims6_1() {
+    public void testIssuerSignedJWTWithUndisclosedClaims6_1() {
         JsonNode claimSet = TestUtils.readClaimSet(getClass(), "sdjwt/s6.1-holder-claims.json");
 
         org.keycloak.sdjwt.DisclosureSpec disclosureSpec = org.keycloak.sdjwt.DisclosureSpec.builder()
@@ -89,7 +80,7 @@ public class IssuerSignedJWTTest {
     }
 
     @Test
-    public void testIssuerSignedJWTWithUndiclosedClaims3_3() {
+    public void testIssuerSignedJWTWithUndisclosedClaims3_3() {
         org.keycloak.sdjwt.DisclosureSpec disclosureSpec = DisclosureSpec.builder()
                 .withUndisclosedClaim("given_name", "2GLC42sKQveCfGfryNRN9w")
                 .withUndisclosedClaim("family_name", "eluV5Og3gSNII8EYnsxA_A")
