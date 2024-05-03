@@ -2,6 +2,8 @@
 package com.adorsys.ssi.sdjwt;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Objects;
 
 import org.keycloak.common.VerificationException;
@@ -32,6 +34,10 @@ public class SdJws {
 
     public JsonNode getPayload() {
         return payload;
+    }
+
+    public JWSInput getJwsInput() {
+        return jwsInput;
     }
 
     public String getJwsString() {
@@ -69,7 +75,7 @@ public class SdJws {
     public void verifySignature(SignatureVerifierContext verifier) throws VerificationException {
         Objects.requireNonNull(verifier, "verifier must not be null");
         try {
-            if (!verifier.verify(jwsInput.getEncodedSignatureInput().getBytes("UTF-8"), jwsInput.getSignature())) {
+            if (!verifier.verify(jwsInput.getEncodedSignatureInput().getBytes(StandardCharsets.UTF_8), jwsInput.getSignature())) {
                 throw new VerificationException("Invalid jws signature");
             }
         } catch (Exception e) {
@@ -77,7 +83,28 @@ public class SdJws {
         }
     }
 
-    private static final JWSInput parse(String jwsString) {
+    public void verifyExpClaim() throws VerificationException {
+        verifyTimeClaim("exp", "jwt has expired");
+    }
+
+    public void verifyNotBeforeClaim() throws VerificationException {
+        verifyTimeClaim("nbf", "jwt not valid yet");
+    }
+
+    private void verifyTimeClaim(String claimName, String errorMessage) throws VerificationException {
+        JsonNode claim = payload.get(claimName);
+        if (claim == null || !claim.isNumber()) {
+            throw new VerificationException("Missing or invalid '" + claimName + "' claim");
+        }
+
+        long claimTime = claim.asLong();
+        long currentTime = Instant.now().getEpochSecond();
+        if (("exp".equals(claimName) && currentTime >= claimTime) || ("nbf".equals(claimName) && currentTime < claimTime)) {
+            throw new VerificationException(errorMessage);
+        }
+    }
+
+    private static JWSInput parse(String jwsString) {
         try {
             return new JWSInput(Objects.requireNonNull(jwsString, "jwsString must not be null"));
         } catch (JWSInputException e) {
@@ -85,7 +112,7 @@ public class SdJws {
         }
     }
 
-    private static final JsonNode readPayload(JWSInput jwsInput) {
+    private static JsonNode readPayload(JWSInput jwsInput) {
         try {
             return SdJwtUtils.mapper.readTree(jwsInput.getContent());
         } catch (IOException e) {

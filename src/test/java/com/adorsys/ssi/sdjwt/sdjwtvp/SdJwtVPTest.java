@@ -10,7 +10,7 @@ import org.keycloak.common.VerificationException;
 import org.keycloak.sdjwt.*;
 import org.keycloak.sdjwt.vp.SdJwtVP;
 
-import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -22,7 +22,7 @@ public class SdJwtVPTest {
     // Additional tests can be written to cover edge cases, error conditions,
     // and any other functionality specific to the SdJwt class.
     @Test
-    public void testIssuerSignedJWTWithUndiclosedClaims3_3() {
+    public void testIssuerSignedJWTWithUndisclosedClaims3_3() {
         DisclosureSpec disclosureSpec = DisclosureSpec.builder()
                 .withUndisclosedClaim("given_name", "2GLC42sKQveCfGfryNRN9w")
                 .withUndisclosedClaim("family_name", "eluV5Og3gSNII8EYnsxA_A")
@@ -66,7 +66,7 @@ public class SdJwtVPTest {
     }
 
     @Test
-    public void testIssuerSignedJWTWithUndiclosedClaims6_1() {
+    public void testIssuerSignedJWTWithUndisclosedClaims6_1() {
         String sdJwtVPString = TestUtils.readFileAsString(getClass(), "sdjwt/s6.1-issued-payload.txt");
         SdJwtVP sdJwtVP = SdJwtVP.of(sdJwtVPString);
         // System.out.println(sdJwtVP.verbose());
@@ -153,7 +153,7 @@ public class SdJwtVPTest {
         presenteSdJwtVP.getKeyBindingJWT().get()
                 .verifySignature(TestSettings.verifierContextFrom(presenteSdJwtVP.getCnfClaim(), "ES256"));
 
-        // Verify with wrong public key from settings (iisuer)
+        // Verify with wrong public key from settings (issuer)
         presenteSdJwtVP.getKeyBindingJWT().get().verifySignature(TestSettings.getInstance().getIssuerVerifierContext());
     }
 
@@ -164,7 +164,7 @@ public class SdJwtVPTest {
         SdJwtVP sdJwtVP = SdJwtVP.of(sdJwtVPString);
         JsonNode keyBindingClaims = TestUtils.readClaimSet(getClass(), "sdjwt/s6.2-key-binding-claims.json");
         // disclose only the given_name
-        String presentation = sdJwtVP.present(Arrays.asList("jsu9yVulwQQlhFlM_3JlzMaSFzglhQG0DpfayQwLUK4"),
+        String presentation = sdJwtVP.present(List.of("jsu9yVulwQQlhFlM_3JlzMaSFzglhQG0DpfayQwLUK4"),
                 keyBindingClaims, TestSettings.getInstance().getHolderSignerContext(), jwsType);
 
         SdJwtVP presenteSdJwtVP = SdJwtVP.of(presentation);

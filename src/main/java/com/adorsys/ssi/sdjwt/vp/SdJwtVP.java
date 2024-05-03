@@ -37,6 +37,8 @@ public class SdJwtVP {
 
     private final Optional<KeyBindingJWT> keyBindingJWT;
 
+    public Map<String, ArrayNode> getClaims() { return  claims; }
+
     public IssuerSignedJWT getIssuerSignedJWT() {
         return issuerSignedJWT;
     }

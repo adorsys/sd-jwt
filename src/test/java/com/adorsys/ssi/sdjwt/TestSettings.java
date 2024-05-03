@@ -14,8 +14,9 @@ import java.util.Map;
 
 /**
  * Import test-settings from:
- * https://github.com/openwallet-foundation-labs/sd-jwt-python/blob/main/src/sd_jwt/utils/demo_settings.yml
- * 
+ * <a href="https://github.com/openwallet-foundation-labs/sd-jwt-python/blob/main/src/sd_jwt/utils/demo_settings.yml">
+ *     open wallet foundation labs</a>
+ *
  * @author <a href="mailto:francis.pouatcha@adorsys.com">Francis Pouatcha</a>
  */
 public class TestSettings {
@@ -88,7 +89,7 @@ public class TestSettings {
         return getSignatureVerifierContext(publicKey, algorithm, KeyUtils.createKeyId(publicKey));
     }
 
-    private static PublicKey readPublicKey(JsonNode keyData) {
+    public static PublicKey readPublicKey(JsonNode keyData) {
         if (keyData.has("jwk")) {
             keyData = keyData.get("jwk");
         }
@@ -195,7 +196,7 @@ public class TestSettings {
 
     private static final Map<String, String> ECDSA_CURVE_2_SPECS_NAMES = new HashMap<>();
 
-    private static final void curveToSpecName() {
+    private static void curveToSpecName() {
         ECDSA_CURVE_2_SPECS_NAMES.put("P-256", "secp256r1");
     }
 
