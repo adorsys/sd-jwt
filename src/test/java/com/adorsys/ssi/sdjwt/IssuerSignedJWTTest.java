@@ -4,11 +4,6 @@ package com.adorsys.ssi.sdjwt;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.Test;
-import org.keycloak.sdjwt.DisclosureSpec;
-import org.keycloak.sdjwt.IssuerSignedJWT;
-import org.keycloak.sdjwt.SdJwt;
-import org.keycloak.sdjwt.SdJwtClaim;
-import org.keycloak.sdjwt.VisibleSdJwtClaim;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,11 +24,11 @@ public class IssuerSignedJWTTest {
     public void testIssuerSignedJWTPayloadWithValidClaims() {
         JsonNode claimSet = TestUtils.readClaimSet(getClass(), "sdjwt/s6.1-holder-claims.json");
 
-        List<org.keycloak.sdjwt.SdJwtClaim> claims = new ArrayList<>();
+        List<SdJwtClaim> claims = new ArrayList<>();
         claimSet.fields().forEachRemaining(entry -> claims.add(
                 VisibleSdJwtClaim.builder().withClaimName(entry.getKey()).withClaimValue(entry.getValue()).build()));
 
-        org.keycloak.sdjwt.IssuerSignedJWT jwt = org.keycloak.sdjwt.IssuerSignedJWT.builder().withClaims(claims).build();
+        IssuerSignedJWT jwt = IssuerSignedJWT.builder().withClaims(claims).build();
 
         assertEquals(claimSet, jwt.getPayload());
     }
@@ -56,22 +51,22 @@ public class IssuerSignedJWTTest {
         assertEquals(claims.size(), claimSet.size() * 2);
 
         // Expecting exception
-        assertThrows(IllegalArgumentException.class, () -> org.keycloak.sdjwt.IssuerSignedJWT.builder().withClaims(claims).build());
+        assertThrows(IllegalArgumentException.class, () -> IssuerSignedJWT.builder().withClaims(claims).build());
     }
 
     @Test
     public void testIssuerSignedJWTWithUndisclosedClaims6_1() {
         JsonNode claimSet = TestUtils.readClaimSet(getClass(), "sdjwt/s6.1-holder-claims.json");
 
-        org.keycloak.sdjwt.DisclosureSpec disclosureSpec = org.keycloak.sdjwt.DisclosureSpec.builder()
+        DisclosureSpec disclosureSpec = DisclosureSpec.builder()
                 .withUndisclosedClaim("email", "JnwGqRFZjMprsoZobherdQ")
                 .withUndisclosedClaim("phone_number", "ffZ03jm_zeHyG4-yoNt6vg")
                 .withUndisclosedClaim("address", "INhOGJnu82BAtsOwiCJc_A")
                 .withUndisclosedClaim("birthdate", "d0l3jsh5sBzj2oEhZxrJGw").build();
 
-        org.keycloak.sdjwt.SdJwt sdJwt = org.keycloak.sdjwt.SdJwt.builder().withDisclosureSpec(disclosureSpec).withClaimSet(claimSet).build();
+        SdJwt sdJwt = SdJwt.builder().withDisclosureSpec(disclosureSpec).withClaimSet(claimSet).build();
 
-        org.keycloak.sdjwt.IssuerSignedJWT jwt = sdJwt.getIssuerSignedJWT();
+        IssuerSignedJWT jwt = sdJwt.getIssuerSignedJWT();
 
         JsonNode expected = TestUtils.readClaimSet(getClass(), "sdjwt/s6.1-issuer-payload.json");
         assertEquals(expected, jwt.getPayload());
@@ -79,7 +74,7 @@ public class IssuerSignedJWTTest {
 
     @Test
     public void testIssuerSignedJWTWithUndisclosedClaims3_3() {
-        org.keycloak.sdjwt.DisclosureSpec disclosureSpec = DisclosureSpec.builder()
+        DisclosureSpec disclosureSpec = DisclosureSpec.builder()
                 .withUndisclosedClaim("given_name", "2GLC42sKQveCfGfryNRN9w")
                 .withUndisclosedClaim("family_name", "eluV5Og3gSNII8EYnsxA_A")
                 .withUndisclosedClaim("email", "6Ij7tM-a5iVPGboS5tmvVA")
@@ -99,7 +94,7 @@ public class IssuerSignedJWTTest {
         // Merge both
         ((ObjectNode) holderClaimSet).setAll((ObjectNode) issuerClaimSet);
 
-        org.keycloak.sdjwt.SdJwt sdJwt = SdJwt.builder()
+        SdJwt sdJwt = SdJwt.builder()
                 .withDisclosureSpec(disclosureSpec)
                 .withClaimSet(holderClaimSet)
                 .build();

@@ -3,11 +3,8 @@ package com.adorsys.ssi.sdjwt;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.nimbusds.jose.JWSSigner;
 import org.junit.Test;
-import org.keycloak.crypto.SignatureSignerContext;
-import org.keycloak.sdjwt.DisclosureSpec;
-import org.keycloak.sdjwt.IssuerSignedJWT;
-import org.keycloak.sdjwt.SdJwt;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -19,13 +16,13 @@ public class SdJwtTest {
 
         @Test
         public void settingsTest() {
-                SignatureSignerContext issuerSignerContext = TestSettings.getInstance().getIssuerSignerContext();
+                JWSSigner issuerSignerContext = TestSettings.getInstance().issuerSigContext.signer;
                 assertNotNull(issuerSignerContext);
         }
 
         @Test
         public void testA1_Example2_with_nested_disclosure_and_decoy_claims() {
-                org.keycloak.sdjwt.DisclosureSpec addrDisclosureSpec = org.keycloak.sdjwt.DisclosureSpec.builder()
+                DisclosureSpec addrDisclosureSpec = DisclosureSpec.builder()
                                 .withUndisclosedClaim("street_address", "AJx-095VPrpTtN4QMOqROA")
                                 .withUndisclosedClaim("locality", "Pc33JM2LchcU_lHggv_ufQ")
                                 .withUndisclosedClaim("region", "G02NSrQfjFXQ7Io09syajA")
@@ -36,7 +33,7 @@ public class SdJwtTest {
                                 .withDecoyClaim("eI8ZWm9QnKPpNPeNenHdhQ")
                                 .build();
 
-                org.keycloak.sdjwt.DisclosureSpec disclosureSpec = DisclosureSpec.builder()
+                DisclosureSpec disclosureSpec = DisclosureSpec.builder()
                                 .withUndisclosedClaim("sub", "2GLC42sKQveCfGfryNRN9w")
                                 .withUndisclosedClaim("given_name", "eluV5Og3gSNII8EYnsxA_A")
                                 .withUndisclosedClaim("family_name", "6Ij7tM-a5iVPGboS5tmvVA")
@@ -54,7 +51,7 @@ public class SdJwtTest {
                 JsonNode addressClaimSet = holderClaimSet.get("address");
 
                 // produce the nested sdJwt
-                org.keycloak.sdjwt.SdJwt addrSdJWT = org.keycloak.sdjwt.SdJwt.builder()
+                SdJwt addrSdJWT = SdJwt.builder()
                                 .withDisclosureSpec(addrDisclosureSpec)
                                 .withClaimSet(addressClaimSet)
                                 .build();
@@ -74,7 +71,7 @@ public class SdJwtTest {
                 ((ObjectNode) holderClaimSet).setAll((ObjectNode) issuerClaimSet);
 
                 // produce the main sdJwt, adding nested sdJwts
-                org.keycloak.sdjwt.SdJwt sdJwt = SdJwt.builder()
+                SdJwt sdJwt = SdJwt.builder()
                                 .withDisclosureSpec(disclosureSpec)
                                 .withClaimSet(holderClaimSet)
                                 .withNestedSdJwt(addrSdJWT)

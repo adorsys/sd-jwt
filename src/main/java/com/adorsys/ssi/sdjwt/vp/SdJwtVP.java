@@ -1,32 +1,26 @@
 
 package com.adorsys.ssi.sdjwt.vp;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Optional;
-import java.util.Set;
-
-import org.keycloak.common.util.Base64Url;
-import org.keycloak.crypto.SignatureSignerContext;
 import com.adorsys.ssi.sdjwt.IssuerSignedJWT;
 import com.adorsys.ssi.sdjwt.SdJwt;
 import com.adorsys.ssi.sdjwt.SdJwtUtils;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSSigner;
+import com.nimbusds.jose.util.Base64URL;
+
+import java.io.IOException;
+import java.util.*;
+import java.util.Map.Entry;
 
 /**
  * @author <a href="mailto:francis.pouatcha@adorsys.com">Francis Pouatcha</a>
  */
 public class SdJwtVP {
-    private String sdJwtVpString;
+    private final String sdJwtVpString;
     private final IssuerSignedJWT issuerSignedJWT;
 
     private final Map<String, ArrayNode> claims;
@@ -37,7 +31,9 @@ public class SdJwtVP {
 
     private final Optional<KeyBindingJWT> keyBindingJWT;
 
-    public Map<String, ArrayNode> getClaims() { return  claims; }
+    public Map<String, ArrayNode> getClaims() {
+        return claims;
+    }
 
     public IssuerSignedJWT getIssuerSignedJWT() {
         return issuerSignedJWT;
@@ -68,8 +64,8 @@ public class SdJwtVP {
     }
 
     private SdJwtVP(String sdJwtVpString, String hashAlgorithm, IssuerSignedJWT issuerSignedJWT,
-            Map<String, ArrayNode> claims, Map<String, String> disclosures, Map<String, String> recursiveDigests,
-            List<String> ghostDigests, Optional<KeyBindingJWT> keyBindingJWT) {
+                    Map<String, ArrayNode> claims, Map<String, String> disclosures, Map<String, String> recursiveDigests,
+                    List<String> ghostDigests, Optional<KeyBindingJWT> keyBindingJWT) {
         this.sdJwtVpString = sdJwtVpString;
         this.hashAlgorithm = hashAlgorithm;
         this.issuerSignedJWT = issuerSignedJWT;
@@ -90,7 +86,10 @@ public class SdJwtVP {
         IssuerSignedJWT issuerSignedJWT = IssuerSignedJWT.fromJws(issuerSignedJWTString);
 
         ObjectNode issuerPayload = (ObjectNode) issuerSignedJWT.getPayload();
-        String hashAlgorithm = issuerPayload.get(IssuerSignedJWT.CLAIM_NAME_SD_HASH_ALGORITHM).asText();
+        String prettyString = issuerPayload.toPrettyString();
+        JsonNode jsonNode = issuerPayload.get(IssuerSignedJWT.CLAIM_NAME_SD_HASH_ALGORITHM);
+        JsonNodeType nodeType = jsonNode.getNodeType();
+        String hashAlgorithm = jsonNode.asText();
 
         Map<String, ArrayNode> claims = new HashMap<>();
         Map<String, String> disclosures = new HashMap<>();
@@ -104,7 +103,7 @@ public class SdJwtVP {
             disclosures.put(disclosureDigest, disclosure);
             ArrayNode disclosureData;
             try {
-                disclosureData = (ArrayNode) SdJwtUtils.mapper.readTree(Base64Url.decode(disclosure));
+                disclosureData = (ArrayNode) SdJwtUtils.mapper.readTree(new Base64URL(disclosure).decode());
                 claims.put(disclosureDigest, disclosureData);
             } catch (IOException e) {
                 throw new IllegalArgumentException("Invalid disclosure data");
@@ -135,9 +134,9 @@ public class SdJwtVP {
     }
 
     private static JsonNode processDisclosureDigest(JsonNode node, String disclosureDigest,
-            Map<String, ArrayNode> claims,
-            Map<String, String> recursiveDigests,
-            List<String> ghostDigests) {
+                                                    Map<String, ArrayNode> claims,
+                                                    Map<String, String> recursiveDigests,
+                                                    List<String> ghostDigests) {
         if (node == null) { // digest is nested in another disclosure
             Set<Entry<String, ArrayNode>> entrySet = claims.entrySet();
             for (Entry<String, ArrayNode> entry : entrySet) {
@@ -162,7 +161,7 @@ public class SdJwtVP {
     }
 
     public String present(List<String> disclosureDigests, JsonNode keyBindingClaims,
-            SignatureSignerContext holdSignatureSignerContext, String jwsType) {
+                          JWSSigner holdSignatureSignerContext, String keyId, JWSAlgorithm jwsAlgorithm, String jwsType) {
         StringBuilder sb = new StringBuilder();
         if (disclosureDigests == null || disclosureDigests.isEmpty()) {
             // disclose everything
@@ -181,8 +180,8 @@ public class SdJwtVP {
         }
         String sd_hash = SdJwtUtils.hashAndBase64EncodeNoPad(unboundPresentation.getBytes(), getHashAlgorithm());
         keyBindingClaims = ((ObjectNode) keyBindingClaims).put("sd_hash", sd_hash);
-        KeyBindingJWT keyBindingJWT = KeyBindingJWT.from(keyBindingClaims, holdSignatureSignerContext, jwsType);
-        sb.append(keyBindingJWT.getJwsString());
+        KeyBindingJWT keyBindingJWT = KeyBindingJWT.from(keyBindingClaims, holdSignatureSignerContext, keyId, jwsAlgorithm, jwsType);
+        sb.append(keyBindingJWT.toJws());
         return sb.toString();
     }
 

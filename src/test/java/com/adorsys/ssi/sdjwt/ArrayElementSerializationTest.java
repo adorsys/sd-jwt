@@ -5,9 +5,6 @@ import com.fasterxml.jackson.databind.node.TextNode;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.keycloak.sdjwt.SdJwtSalt;
-import org.keycloak.sdjwt.SdJwtUtils;
-import org.keycloak.sdjwt.UndisclosedArrayElement;
 
 import static org.junit.Assert.assertEquals;
 
@@ -18,7 +15,7 @@ public class ArrayElementSerializationTest {
 
     @Before
     public void setUp() throws Exception {
-        org.keycloak.sdjwt.SdJwtUtils.arrayEltSpaced = false;
+        SdJwtUtils.arrayEltSpaced = false;
     }
 
     @After
@@ -30,7 +27,7 @@ public class ArrayElementSerializationTest {
     public void testToBase64urlEncoded() {
         // Create an instance of UndisclosedArrayElement with the specified fields
         // "lklxF5jMYlGTPUovMNIvCA", "FR"
-        org.keycloak.sdjwt.UndisclosedArrayElement arrayElementDisclosure = UndisclosedArrayElement.builder()
+        UndisclosedArrayElement arrayElementDisclosure = UndisclosedArrayElement.builder()
                 .withSalt(new SdJwtSalt("lklxF5jMYlGTPUovMNIvCA"))
                 .withArrayElement(new TextNode("FR")).build();
 

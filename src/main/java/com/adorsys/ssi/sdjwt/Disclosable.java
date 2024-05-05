@@ -1,21 +1,18 @@
 
 package com.adorsys.ssi.sdjwt;
 
-import java.util.Objects;
-
-import org.keycloak.jose.jws.crypto.HashUtils;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
+
+import java.util.Objects;
 
 /**
  * Handles undisclosed claims and array elements, providing functionality
  * to generate disclosure digests from Base64Url encoded strings.
- * 
+ * <p>
  * Hiding claims and array elements occurs by including their digests
  * instead of plaintext in the signed verifiable credential.
- * 
+ *
  * @author <a href="mailto:francis.pouatcha@adorsys.com">Francis Pouatcha</a>
- * 
  */
 public abstract class Disclosable {
     private final SdJwtSalt salt;
@@ -52,7 +49,7 @@ public abstract class Disclosable {
     }
 
     public String getDisclosureDigest(String hashAlg) {
-        return SdJwtUtils.encodeNoPad(HashUtils.hash(hashAlg, getDisclosureString().getBytes()));
+        return SdJwtUtils.encodeNoPad(SdJwtUtils.hash(getDisclosureString().getBytes(), hashAlg));
     }
 
     @Override

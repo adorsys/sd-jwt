@@ -4,7 +4,6 @@ package com.adorsys.ssi.sdjwt;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import org.junit.Test;
-import org.keycloak.sdjwt.SdJwtUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
