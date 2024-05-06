@@ -1,15 +1,16 @@
 
 package com.adorsys.ssi.sdjwt.sdjwtvp;
 
-import com.adorsys.ssi.sdjwt.TestSettings;
-import com.adorsys.ssi.sdjwt.TestUtils;
+import com.adorsys.ssi.sdjwt.*;
+import com.adorsys.ssi.sdjwt.vp.SdJwtVP;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.JWSObject;
+import com.nimbusds.jose.util.Base64URL;
 import org.junit.Test;
-import org.keycloak.common.VerificationException;
-import org.keycloak.sdjwt.*;
-import org.keycloak.sdjwt.vp.SdJwtVP;
 
+import java.text.ParseException;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
@@ -19,6 +20,7 @@ import static org.junit.Assert.assertTrue;
  * @author <a href="mailto:francis.pouatcha@adorsys.com">Francis Pouatcha</a>
  */
 public class SdJwtVPTest {
+    static TestSettings testSettings = TestSettings.getInstance();
     // Additional tests can be written to cover edge cases, error conditions,
     // and any other functionality specific to the SdJwt class.
     @Test
@@ -46,7 +48,8 @@ public class SdJwtVPTest {
         SdJwt sdJwt = SdJwt.builder()
                 .withDisclosureSpec(disclosureSpec)
                 .withClaimSet(holderClaimSet)
-                .withSigner(TestSettings.getInstance().getIssuerSignerContext())
+                .withSigner(testSettings.issuerSigContext.signer)
+                .withKeyId(testSettings.issuerSigContext.keyId)
                 .build();
 
         IssuerSignedJWT jwt = sdJwt.getIssuerSignedJWT();
@@ -105,47 +108,54 @@ public class SdJwtVPTest {
     }
 
     @Test
-    public void testS7_3_VerifyIssuerSignaturePositive() throws VerificationException {
+    public void testS7_3_VerifyIssuerSignaturePositive() throws JOSEException, ParseException {
         String sdJwtVPString = TestUtils.readFileAsString(getClass(), "sdjwt/s7.3-sdjwt.txt");
         SdJwtVP sdJwtVP = SdJwtVP.of(sdJwtVPString);
-        sdJwtVP.getIssuerSignedJWT().verifySignature(TestSettings.getInstance().getIssuerVerifierContext());
+
+        String jws = sdJwtVP.getIssuerSignedJWT().toJws();
+        JWSObject parse = JWSObject.parse(jws);
+        Base64URL parsedPart = parse.getParsedParts()[1];
+
+        IssuerSignedJWT issuerSignedJWT = new IssuerSignedJWT(parsedPart, testSettings.issuerSigContext.signer, testSettings.issuerSigContext.keyId, testSettings.jwsAlgorithm, "vc+sd-jwt");
+
+        sdJwtVP.getIssuerSignedJWT().verifySignature(testSettings.issuerVerifierContext.verifier);
     }
 
-    @Test(expected = VerificationException.class)
-    public void testS7_3_VerifyIssuerSignatureNegative() throws VerificationException {
+    @Test(expected = JOSEException.class)
+    public void testS7_3_VerifyIssuerSignatureNegative() throws JOSEException {
         String sdJwtVPString = TestUtils.readFileAsString(getClass(), "sdjwt/s7.3-sdjwt.txt");
         SdJwtVP sdJwtVP = SdJwtVP.of(sdJwtVPString);
-        sdJwtVP.getIssuerSignedJWT().verifySignature(TestSettings.getInstance().getHolderVerifierContext());
+        sdJwtVP.getIssuerSignedJWT().verifySignature(testSettings.holderVerifierContext.verifier);
     }
 
     @Test
-    public void testS6_2_PresentationPositive() throws VerificationException {
+    public void testS6_2_PresentationPositive() throws JOSEException, ParseException {
         String jwsType = "vc+sd-jwt";
         String sdJwtVPString = TestUtils.readFileAsString(getClass(), "sdjwt/s6.2-presented-sdjwtvp.txt");
         SdJwtVP sdJwtVP = SdJwtVP.of(sdJwtVPString);
         JsonNode keyBindingClaims = TestUtils.readClaimSet(getClass(), "sdjwt/s6.2-key-binding-claims.json");
         String presentation = sdJwtVP.present(null, keyBindingClaims,
-                TestSettings.getInstance().getHolderSignerContext(), jwsType);
+                testSettings.holderSigContext.signer, testSettings.holderSigContext.keyId, testSettings.jwsAlgorithm, jwsType);
 
         SdJwtVP presenteSdJwtVP = SdJwtVP.of(presentation);
         assertTrue(presenteSdJwtVP.getKeyBindingJWT().isPresent());
 
         // Verify with public key from settings
-        presenteSdJwtVP.getKeyBindingJWT().get().verifySignature(TestSettings.getInstance().getHolderVerifierContext());
+        presenteSdJwtVP.getKeyBindingJWT().get().verifySignature(testSettings.holderVerifierContext.verifier);
 
         // Verify with public key from cnf claim
         presenteSdJwtVP.getKeyBindingJWT().get()
                 .verifySignature(TestSettings.verifierContextFrom(presenteSdJwtVP.getCnfClaim(), "ES256"));
     }
 
-    @Test(expected = VerificationException.class)
-    public void testS6_2_PresentationNegative() throws VerificationException {
+    @Test(expected = JOSEException.class)
+    public void testS6_2_PresentationNegative() throws JOSEException, ParseException {
         String jwsType = "vc+sd-jwt";
         String sdJwtVPString = TestUtils.readFileAsString(getClass(), "sdjwt/s6.2-presented-sdjwtvp.txt");
         SdJwtVP sdJwtVP = SdJwtVP.of(sdJwtVPString);
         JsonNode keyBindingClaims = TestUtils.readClaimSet(getClass(), "sdjwt/s6.2-key-binding-claims.json");
         String presentation = sdJwtVP.present(null, keyBindingClaims,
-                TestSettings.getInstance().getHolderSignerContext(), jwsType);
+                testSettings.holderSigContext.signer, testSettings.holderSigContext.keyId, testSettings.jwsAlgorithm, jwsType);
 
         SdJwtVP presenteSdJwtVP = SdJwtVP.of(presentation);
         assertTrue(presenteSdJwtVP.getKeyBindingJWT().isPresent());
@@ -154,18 +164,18 @@ public class SdJwtVPTest {
                 .verifySignature(TestSettings.verifierContextFrom(presenteSdJwtVP.getCnfClaim(), "ES256"));
 
         // Verify with wrong public key from settings (issuer)
-        presenteSdJwtVP.getKeyBindingJWT().get().verifySignature(TestSettings.getInstance().getIssuerVerifierContext());
+        presenteSdJwtVP.getKeyBindingJWT().get().verifySignature(testSettings.issuerVerifierContext.verifier);
     }
 
     @Test
-    public void testS6_2_PresentationPartialDisclosure() throws VerificationException {
+    public void testS6_2_PresentationPartialDisclosure() throws ParseException, JOSEException {
         String jwsType = "vc+sd-jwt";
         String sdJwtVPString = TestUtils.readFileAsString(getClass(), "sdjwt/s6.2-presented-sdjwtvp.txt");
         SdJwtVP sdJwtVP = SdJwtVP.of(sdJwtVPString);
         JsonNode keyBindingClaims = TestUtils.readClaimSet(getClass(), "sdjwt/s6.2-key-binding-claims.json");
         // disclose only the given_name
         String presentation = sdJwtVP.present(List.of("jsu9yVulwQQlhFlM_3JlzMaSFzglhQG0DpfayQwLUK4"),
-                keyBindingClaims, TestSettings.getInstance().getHolderSignerContext(), jwsType);
+                keyBindingClaims, testSettings.holderSigContext.signer, testSettings.holderSigContext.keyId, testSettings.jwsAlgorithm, jwsType);
 
         SdJwtVP presenteSdJwtVP = SdJwtVP.of(presentation);
         assertTrue(presenteSdJwtVP.getKeyBindingJWT().isPresent());

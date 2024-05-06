@@ -2,15 +2,16 @@
 package com.adorsys.ssi.sdjwt;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import org.keycloak.common.util.Base64Url;
-import org.keycloak.common.util.KeyUtils;
-import org.keycloak.crypto.*;
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSSigner;
+import com.nimbusds.jose.JWSVerifier;
+import com.nimbusds.jose.crypto.ECDSASigner;
+import com.nimbusds.jose.crypto.ECDSAVerifier;
+import com.nimbusds.jose.jwk.ECKey;
+import com.nimbusds.jose.jwk.JWK;
 
-import java.math.BigInteger;
-import java.security.*;
-import java.security.spec.*;
-import java.util.HashMap;
-import java.util.Map;
+import java.text.ParseException;
 
 /**
  * Import test-settings from:
@@ -24,183 +25,71 @@ public class TestSettings {
     public final SignatureSignerContext issuerSigContext;
     public final SignatureVerifierContext holderVerifierContext;
     public final SignatureVerifierContext issuerVerifierContext;
+    public final JWSAlgorithm jwsAlgorithm;
 
     private static TestSettings instance = null;
 
     public static TestSettings getInstance() {
         if (instance == null) {
-            instance = new TestSettings();
+            try {
+                instance = new TestSettings();
+            } catch (ParseException | JOSEException e) {
+                throw new RuntimeException(e);
+            }
         }
         return instance;
     }
 
-    public SignatureSignerContext getIssuerSignerContext() {
-        return issuerSigContext;
-    }
-
-    public SignatureSignerContext getHolderSignerContext() {
-        return holderSigContext;
-    }
-
-    public SignatureVerifierContext getIssuerVerifierContext() {
-        return issuerVerifierContext;
-    }
-
-    public SignatureVerifierContext getHolderVerifierContext() {
-        return holderVerifierContext;
-    }
-
-    // private constructor
-    private TestSettings() {
-        JsonNode testSettings = TestUtils.readClaimSet(getClass(), "sdjwt/test-settings.json");
+    private TestSettings() throws ParseException, JOSEException {
+        // Load keys from your configuration file or generate if necessary
+        JsonNode testSettings = TestUtils.readClaimSet(getClass(), "sdjwt/test-settings.json"); // Or adapt this to your method of reading settings
         JsonNode keySettings = testSettings.get("key_settings");
 
-        holderSigContext = initSigContext(keySettings, "holder_key", "ES256", "holder");
-        issuerSigContext = initSigContext(keySettings, "issuer_key", "ES256", "doc-signer-05-25-2022");
+        ECKey holderKey = loadOrCreateECKey(keySettings, "holder_key");
+        holderSigContext = new SignatureSignerContext(new ECDSASigner(holderKey.toECPrivateKey()), holderKey.getKeyID());
+        holderVerifierContext = new SignatureVerifierContext(new ECDSAVerifier(holderKey.toECPublicKey()));
 
-        holderVerifierContext = initVerifierContext(keySettings, "holder_key", "ES256", "holder");
-        issuerVerifierContext = initVerifierContext(keySettings, "issuer_key", "ES256", "doc-signer-05-25-2022");
+        ECKey issuerKey = loadOrCreateECKey(keySettings, "issuer_key");
+        issuerSigContext = new SignatureSignerContext(new ECDSASigner(issuerKey.toECPrivateKey()), issuerKey.getKeyID());
+        issuerVerifierContext = new SignatureVerifierContext(new ECDSAVerifier(issuerKey.toECPublicKey()));
+
+        jwsAlgorithm = JWSAlgorithm.parse(testSettings.get("jwsAlgorithm").asText());
     }
 
-    private static SignatureSignerContext initSigContext(JsonNode keySettings, String keyName, String algorithm,
-            String kid) {
+    private ECKey loadOrCreateECKey(JsonNode keySettings, String keyName) throws ParseException {
+        // private constructor
         JsonNode keySetting = keySettings.get(keyName);
-        KeyPair keyPair = readKeyPair(keySetting);
-        return getSignatureSignerContext(keyPair, algorithm, kid);
+        return parseJwk(keySetting).toECKey(); // Where 'keyData' is your JWK
     }
 
-    private static SignatureVerifierContext initVerifierContext(JsonNode keySettings, String keyName, String algorithm,
-            String kid) {
-        JsonNode keySetting = keySettings.get(keyName);
-        KeyPair keyPair = readKeyPair(keySetting);
-        return getSignatureVerifierContext(keyPair.getPublic(), algorithm, kid);
+    public static JWSVerifier verifierContextFrom(JsonNode keyData, String algorithm) throws ParseException, JOSEException {
+        if(JWSAlgorithm.ES256.toString().equals(algorithm))
+            return new ECDSAVerifier(parseJwk(keyData).toECKey().toECPublicKey());
+        throw new IllegalArgumentException("Algorithm " + algorithm + " not supported. Supports only ES256 for now");
     }
 
-    private static KeyPair readKeyPair(JsonNode keySetting) {
-        String curveName = keySetting.get("crv").asText();
-        String base64UrlEncodedD = keySetting.get("d").asText();
-        String base64UrlEncodedX = keySetting.get("x").asText();
-        String base64UrlEncodedY = keySetting.get("y").asText();
-        return readEcdsaKeyPair(curveName, base64UrlEncodedD, base64UrlEncodedX, base64UrlEncodedY);
-    }
-
-    public static SignatureVerifierContext verifierContextFrom(JsonNode keyData, String algorithm) {
-        PublicKey publicKey = readPublicKey(keyData);
-        return getSignatureVerifierContext(publicKey, algorithm, KeyUtils.createKeyId(publicKey));
-    }
-
-    public static PublicKey readPublicKey(JsonNode keyData) {
-        if (keyData.has("jwk")) {
-            keyData = keyData.get("jwk");
+    private static JWK parseJwk(JsonNode keySetting) throws ParseException {
+        JsonNode jwk = keySetting.get("jwk");
+        if(jwk!=null){
+            keySetting = jwk;
         }
-        String curveName = keyData.get("crv").asText();
-        String base64UrlEncodedX = keyData.get("x").asText();
-        String base64UrlEncodedY = keyData.get("y").asText();
-        return readEcdsaPublic(curveName, base64UrlEncodedX, base64UrlEncodedY);
+        return JWK.parse(keySetting.toString());
     }
 
-    private static PublicKey readEcdsaPublic(String curveName, String base64UrlEncodedX,
-            String base64UrlEncodedY) {
+    public static class SignatureSignerContext {
+        public final JWSSigner signer;
+        public final String keyId;
 
-        ECParameterSpec ecSpec = getECParameterSpec(ECDSA_CURVE_2_SPECS_NAMES.get(curveName));
-
-        byte[] xBytes = Base64Url.decode(base64UrlEncodedX);
-        byte[] yBytes = Base64Url.decode(base64UrlEncodedY);
-
-        try {
-            KeyFactory keyFactory = KeyFactory.getInstance("EC");
-
-            // Generate ECPrivateKey
-
-            // Instantiate ECPoint
-            BigInteger xValue = new BigInteger(1, xBytes);
-            BigInteger yValue = new BigInteger(1, yBytes);
-            ECPoint point = new ECPoint(xValue, yValue);
-
-            // Generate ECPublicKey
-            return keyFactory.generatePublic(new ECPublicKeySpec(point, ecSpec));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        SignatureSignerContext(JWSSigner signer, String keyId) {
+            this.signer = signer;
+            this.keyId = keyId;
         }
     }
+    public static class SignatureVerifierContext {
+        public final JWSVerifier verifier;
 
-    private static KeyPair readEcdsaKeyPair(String curveName, String base64UrlEncodedD, String base64UrlEncodedX,
-            String base64UrlEncodedY) {
-
-        ECParameterSpec ecSpec = getECParameterSpec(ECDSA_CURVE_2_SPECS_NAMES.get(curveName));
-
-        byte[] dBytes = Base64Url.decode(base64UrlEncodedD);
-        byte[] xBytes = Base64Url.decode(base64UrlEncodedX);
-        byte[] yBytes = Base64Url.decode(base64UrlEncodedY);
-
-        try {
-            KeyFactory keyFactory = KeyFactory.getInstance("EC");
-
-            // Generate ECPrivateKey
-            BigInteger dValue = new BigInteger(1, dBytes);
-            PrivateKey privateKey = keyFactory.generatePrivate(new ECPrivateKeySpec(dValue, ecSpec));
-
-            // Instantiate ECPoint
-            BigInteger xValue = new BigInteger(1, xBytes);
-            BigInteger yValue = new BigInteger(1, yBytes);
-            ECPoint point = new ECPoint(xValue, yValue);
-
-            // Generate ECPublicKey
-            PublicKey publicKey = keyFactory.generatePublic(new ECPublicKeySpec(point, ecSpec));
-            return new KeyPair(publicKey, privateKey);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        SignatureVerifierContext(JWSVerifier verifier) {
+            this.verifier = verifier;
         }
-    }
-
-    private static final Map<String, ECParameterSpec> ECDSA_KEY_SPECS = new HashMap<>();
-
-    private static ECParameterSpec getECParameterSpec(String paramSpecName) {
-        return ECDSA_KEY_SPECS.computeIfAbsent(paramSpecName, TestSettings::generateEcdsaKeySpec);
-    }
-
-    // generate key spec
-    private static ECParameterSpec generateEcdsaKeySpec(String paramSpecName) {
-        try {
-            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC");
-            ECGenParameterSpec ecGenParameterSpec = new ECGenParameterSpec(paramSpecName);
-            keyPairGenerator.initialize(ecGenParameterSpec);
-            KeyPair keyPair = keyPairGenerator.generateKeyPair();
-            return ((java.security.interfaces.ECPublicKey) keyPair.getPublic()).getParams();
-        } catch (Exception e) {
-            throw new RuntimeException("Error obtaining ECParameterSpec for P-256 curve", e);
-        }
-    }
-
-    private static SignatureSignerContext getSignatureSignerContext(KeyPair keyPair, String algorithm, String kid) {
-        KeyWrapper keyWrapper = new KeyWrapper();
-        keyWrapper.setAlgorithm(algorithm);
-        keyWrapper.setPrivateKey(keyPair.getPrivate());
-        keyWrapper.setPublicKey(keyPair.getPublic());
-        keyWrapper.setType(keyPair.getPublic().getAlgorithm());
-        keyWrapper.setUse(KeyUse.SIG);
-        keyWrapper.setKid(kid);
-        return new AsymmetricSignatureSignerContext(keyWrapper);
-    }
-
-    private static SignatureVerifierContext getSignatureVerifierContext(PublicKey publicKey, String algorithm,
-            String kid) {
-        KeyWrapper keyWrapper = new KeyWrapper();
-        keyWrapper.setAlgorithm(algorithm);
-        keyWrapper.setPublicKey(publicKey);
-        keyWrapper.setType(publicKey.getAlgorithm());
-        keyWrapper.setUse(KeyUse.SIG);
-        keyWrapper.setKid(kid);
-        return new AsymmetricSignatureVerifierContext(keyWrapper);
-    }
-
-    private static final Map<String, String> ECDSA_CURVE_2_SPECS_NAMES = new HashMap<>();
-
-    private static void curveToSpecName() {
-        ECDSA_CURVE_2_SPECS_NAMES.put("P-256", "secp256r1");
-    }
-
-    static {
-        curveToSpecName();
     }
 }

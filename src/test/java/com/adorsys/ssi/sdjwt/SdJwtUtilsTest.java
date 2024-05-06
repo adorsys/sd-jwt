@@ -2,8 +2,6 @@
 package com.adorsys.ssi.sdjwt;
 
 import org.junit.Test;
-import org.keycloak.jose.jws.crypto.HashUtils;
-import org.keycloak.sdjwt.SdJwtUtils;
 
 import java.io.IOException;
 
@@ -20,8 +18,8 @@ public class SdJwtUtilsTest {
     @Test
     public void testHashDisclosure() {
         String expected = "uutlBuYeMDyjLLTpf6Jxi7yNkEF35jdyWMn9U7b_RYY";
-        byte[] hash = HashUtils.hash("SHA-256", "WyI2cU1RdlJMNWhhaiIsICJmYW1pbHlfbmFtZSIsICJNw7ZiaXVzIl0".getBytes());
-        assertEquals(expected, org.keycloak.sdjwt.SdJwtUtils.encodeNoPad(hash));
+        byte[] hash = SdJwtUtils.hash("WyI2cU1RdlJMNWhhaiIsICJmYW1pbHlfbmFtZSIsICJNw7ZiaXVzIl0".getBytes(), "SHA-256");
+        assertEquals(expected, SdJwtUtils.encodeNoPad(hash));
     }
 
     /**
@@ -31,8 +29,8 @@ public class SdJwtUtilsTest {
     @Test
     public void testHashDisclosure2() {
         String expected = "w0I8EKcdCtUPkGCNUrfwVp2xEgNjtoIDlOxc9-PlOhs";
-        byte[] hash = HashUtils.hash("SHA-256", "WyJsa2x4RjVqTVlsR1RQVW92TU5JdkNBIiwgIkZSIl0".getBytes());
-        assertEquals(expected, org.keycloak.sdjwt.SdJwtUtils.encodeNoPad(hash));
+        byte[] hash = SdJwtUtils.hash("WyJsa2x4RjVqTVlsR1RQVW92TU5JdkNBIiwgIkZSIl0".getBytes(), "SHA-256");
+        assertEquals(expected, SdJwtUtils.encodeNoPad(hash));
     }
 
     /**
@@ -60,7 +58,7 @@ public class SdJwtUtilsTest {
 
         // Assert that the base64 URL encoded string from the object matches the
         // expected string
-        assertEquals(expected, org.keycloak.sdjwt.SdJwtUtils.encodeNoPad(input.getBytes()));
+        assertEquals(expected, SdJwtUtils.encodeNoPad(input.getBytes()));
     }
 
     /**
@@ -81,7 +79,7 @@ public class SdJwtUtilsTest {
 
         // Assert that the base64 URL encoded string from the object matches the
         // expected string
-        assertEquals(expected, org.keycloak.sdjwt.SdJwtUtils.encodeNoPad(input.getBytes()));
+        assertEquals(expected, SdJwtUtils.encodeNoPad(input.getBytes()));
     }
 
     @Test
@@ -93,7 +91,7 @@ public class SdJwtUtilsTest {
 
         // Assert that the base64 URL encoded string from the object matches the
         // expected string
-        assertEquals(expected, org.keycloak.sdjwt.SdJwtUtils.encodeNoPad(input.getBytes()));
+        assertEquals(expected, SdJwtUtils.encodeNoPad(input.getBytes()));
     }
 
     @Test

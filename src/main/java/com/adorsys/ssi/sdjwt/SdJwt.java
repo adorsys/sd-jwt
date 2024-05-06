@@ -9,13 +9,13 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import org.keycloak.crypto.SignatureSignerContext;
 import com.adorsys.ssi.sdjwt.vp.KeyBindingJWT;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.nimbusds.jose.JWSSigner;
 
 /**
  * Main entry class for selective disclosure jwt (SD-JWT).
@@ -31,7 +31,8 @@ public class SdJwt {
 
     private SdJwt(DisclosureSpec disclosureSpec, JsonNode claimSet, List<SdJwt> nesteSdJwts,
                   Optional<KeyBindingJWT> keyBindingJWT,
-                  SignatureSignerContext signer,
+                  JWSSigner signer,
+                  String keyId,
                   String hashAlgorithm,
                   String jwsType) {
         claims = new ArrayList<>();
@@ -43,6 +44,7 @@ public class SdJwt {
                 .withDecoyClaims(createdDecoyClaims(disclosureSpec))
                 .withNestedDisclosures(!nesteSdJwts.isEmpty())
                 .withSigner(signer)
+                .withKeyId(keyId)
                 .withHashAlg(hashAlgorithm)
                 .withJwsType(jwsType)
                 .build();
@@ -184,10 +186,11 @@ public class SdJwt {
         private DisclosureSpec disclosureSpec;
         private JsonNode claimSet;
         private Optional<KeyBindingJWT> keyBindingJWT = Optional.empty();
-        private SignatureSignerContext signer;
+        private JWSSigner signer;
         private final List<SdJwt> nestedSdJwts = new ArrayList<>();
         private String hashAlgorithm;
         private String jwsType;
+        private String keyId;
 
         public Builder withDisclosureSpec(DisclosureSpec disclosureSpec) {
             this.disclosureSpec = disclosureSpec;
@@ -204,8 +207,13 @@ public class SdJwt {
             return this;
         }
 
-        public Builder withSigner(SignatureSignerContext signer) {
+        public Builder withSigner(JWSSigner signer) {
             this.signer = signer;
+            return this;
+        }
+
+        public Builder withKeyId(String keyId){
+            this.keyId = keyId;
             return this;
         }
 
@@ -225,7 +233,7 @@ public class SdJwt {
         }
 
         public SdJwt build() {
-            return new SdJwt(disclosureSpec, claimSet, nestedSdJwts, keyBindingJWT, signer, hashAlgorithm, jwsType);
+            return new SdJwt(disclosureSpec, claimSet, nestedSdJwts, keyBindingJWT, signer, keyId, hashAlgorithm, jwsType);
         }
     }
 

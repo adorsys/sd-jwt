@@ -5,9 +5,6 @@ import com.fasterxml.jackson.databind.node.TextNode;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.keycloak.sdjwt.SdJwtSalt;
-import org.keycloak.sdjwt.SdJwtUtils;
-import org.keycloak.sdjwt.UndisclosedClaim;
 
 import static org.junit.Assert.assertEquals;
 
@@ -18,7 +15,7 @@ public class UndisclosedClaimTest {
 
     @Before
     public void setUp() throws Exception {
-        org.keycloak.sdjwt.SdJwtUtils.arrayEltSpaced = false;
+        SdJwtUtils.arrayEltSpaced = false;
     }
 
     @After
@@ -29,7 +26,7 @@ public class UndisclosedClaimTest {
     @Test
     public void testToBase64urlEncoded() {
         // Create an instance of UndisclosedClaim with the specified fields
-        org.keycloak.sdjwt.UndisclosedClaim undisclosedClaim = UndisclosedClaim.builder()
+        UndisclosedClaim undisclosedClaim = UndisclosedClaim.builder()
                 .withClaimName("family_name")
                 .withSalt(new SdJwtSalt("_26bc4LT-ac6q2KI6cBW5es"))
                 .withClaimValue(new TextNode("Möbius"))

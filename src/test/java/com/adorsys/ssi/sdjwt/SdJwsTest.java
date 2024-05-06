@@ -1,33 +1,23 @@
 package com.adorsys.ssi.sdjwt;
 
 
-import java.time.Instant;
-import java.util.Arrays;
-import java.util.concurrent.TimeUnit;
-
-import org.junit.Before;
-import org.junit.Test;
-
-import static org.junit.Assert.*;
-
-import org.keycloak.common.VerificationException;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.keycloak.crypto.SignatureSignerContext;
-import org.keycloak.crypto.SignatureVerifierContext;
-import org.keycloak.jose.jws.JWSInput;
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSSigner;
+import com.nimbusds.jose.JWSVerifier;
+import org.junit.Test;
+
+import java.time.Instant;
+import java.util.concurrent.TimeUnit;
+
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
 
 public class SdJwsTest {
-    private SdJws sdJws;
-    private JsonNode payload;
-
-    @Before
-    public void setUp() {
-        payload = createPayload();
-        sdJws = new SdJws(payload);
-    }
+    static TestSettings testSesstings = TestSettings.getInstance();
 
     private JsonNode createPayload() {
         ObjectMapper mapper = new ObjectMapper();
@@ -39,60 +29,73 @@ public class SdJwsTest {
     }
 
     @Test
-    public void testToJws() {
-        assertThrows(IllegalStateException.class, () -> sdJws.toJws());
+    public void testVerifySignature_Positive() throws Exception {
+        SdJws sdJws = new SdJws(createPayload(), testSesstings.holderSigContext.signer, testSesstings.holderSigContext.keyId, JWSAlgorithm.ES256, "jwt") {
+        };
+        sdJws.verifySignature(testSesstings.holderVerifierContext.verifier);
     }
 
     @Test
-    public void testGetPayload() {
-        assertEquals(payload, sdJws.getPayload());
+    public void testVerifySignature_WrongPublicKey() throws Exception {
+        SdJws sdJws = new SdJws(createPayload(), testSesstings.holderSigContext.signer, testSesstings.holderSigContext.keyId, JWSAlgorithm.ES256, "jwt") {
+        };
+        assertThrows(JOSEException.class, () -> sdJws.verifySignature(testSesstings.issuerVerifierContext.verifier));
     }
 
     @Test
-    public void testGetJwsString() {
-        assertThrows(NullPointerException.class, () -> sdJws.getJwsString());
-    }
-
-    @Test
-    public void testVerifySignature() throws Exception {
-        SignatureSignerContext signatureSignerContext = TestSettings.getInstance().holderSigContext;
-        SignatureVerifierContext signatureVerifierContext = TestSettings.getInstance().holderVerifierContext;
-
-        sdJws = new SdJws(payload, signatureSignerContext, "jwt");
-
-        JWSInput jwsInput = new JWSInput(sdJws.getJwsString());
-
-        assertEquals(jwsInput.getEncodedSignatureInput(), sdJws.getJwsInput().getEncodedSignatureInput());
-        assertEquals(Arrays.toString(jwsInput.getSignature()), Arrays.toString(sdJws.getJwsInput().getSignature()));
-
-        sdJws.verifySignature(signatureVerifierContext);
-
-        assertThrows(VerificationException.class, () -> sdJws.verifySignature(TestSettings.getInstance().issuerVerifierContext));
-    }
-
-    @Test
-    public void testVerifyExpClaim() throws VerificationException {
-        sdJws = new SdJws(createPayload());
+    public void testVerifyExpClaim_ExpiredJWT() throws JOSEException {
+        JsonNode payload = createPayload();
         ((ObjectNode) payload).put("exp", Instant.now().minus(1, TimeUnit.HOURS.toChronoUnit()).getEpochSecond());
-        sdJws = new SdJws(payload);
-        assertThrows(VerificationException.class, () -> sdJws.verifyExpClaim());
+        SdJws sdJws = new SdJws(payload) {
+        };
+        assertThrows(JOSEException.class, sdJws::verifyExpClaim);
+    }
 
-        payload = createPayload();
+    @Test
+    public void testVerifyExpClaim_Positive() throws JOSEException {
+        JsonNode payload = createPayload();
         ((ObjectNode) payload).put("exp", Instant.now().plus(1, TimeUnit.HOURS.toChronoUnit()).getEpochSecond());
-        sdJws = new SdJws(payload);
+        SdJws sdJws = new SdJws(payload) {
+        };
         sdJws.verifyExpClaim();
     }
 
     @Test
-    public void testVerifyNotBeforeClaim() throws VerificationException {
+    public void testVerifyNotBeforeClaim_Negative() throws JOSEException {
         JsonNode payload = createPayload();
         ((ObjectNode) payload).put("nbf", Instant.now().plus(1, TimeUnit.HOURS.toChronoUnit()).getEpochSecond());
-        sdJws = new SdJws(payload);
-        assertThrows(VerificationException.class, () -> sdJws.verifyNotBeforeClaim());
+        SdJws sdJws = new SdJws(payload) {
+        };
+        assertThrows(JOSEException.class, sdJws::verifyNotBeforeClaim);
+    }
 
-        payload = createPayload();
+    @Test
+    public void testVerifyNotBeforeClaim_Positive() throws JOSEException {
+        JsonNode payload = createPayload();
         ((ObjectNode) payload).put("nbf", Instant.now().minus(1, TimeUnit.HOURS.toChronoUnit()).getEpochSecond());
-        sdJws = new SdJws(payload);
+        SdJws sdJws = new SdJws(payload) {
+        };
         sdJws.verifyNotBeforeClaim();
+    }
+
+    @Test
+    public void testPayloadJwsConstruction() {
+        SdJws sdJws = new SdJws(createPayload()) {
+        };
+        assertNotNull(sdJws.getPayload());
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testUnsignedJwsConstruction() {
+        SdJws sdJws = new SdJws(createPayload()) {
+        };
+        sdJws.toJws();
+    }
+
+    @Test
+    public void testSignedJwsConstruction() throws JOSEException {
+        SdJws sdJws = new SdJws(createPayload(), testSesstings.holderSigContext.signer, testSesstings.holderSigContext.keyId, JWSAlgorithm.ES256, "jwt") {
+        };
+        assertNotNull(sdJws.toJws());
     }
 }

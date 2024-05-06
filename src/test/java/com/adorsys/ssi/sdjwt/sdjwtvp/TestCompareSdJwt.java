@@ -1,13 +1,13 @@
 
 package com.adorsys.ssi.sdjwt.sdjwtvp;
 
+import com.adorsys.ssi.sdjwt.IssuerSignedJWT;
+import com.adorsys.ssi.sdjwt.SdJwtUtils;
+import com.adorsys.ssi.sdjwt.vp.SdJwtVP;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import org.keycloak.common.util.Base64Url;
-import org.keycloak.sdjwt.IssuerSignedJWT;
-import org.keycloak.sdjwt.SdJwtUtils;
-import org.keycloak.sdjwt.vp.SdJwtVP;
+import com.nimbusds.jose.util.Base64URL;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -20,19 +20,16 @@ import static org.junit.Assert.assertTrue;
 
 /**
  * This class will try to test conformity to the spec by comparing json objects.
- * 
- * 
  * We are facing the situation that:
- * - json produced are not normalized. But we can compare them by natching their
+ * - json produced are not normalized. But we can compare them by matching their
  * content once loaded into a json object.
  * - ecdsa signature contains random component. We can't compare them directly.
  * Even if we had the same input byte
  * - The no rationale for ordering the disclosures. So we can only make sure
  * each of them is present and that the json content matches.
- * 
- * Warning: in orther to produce the same disclosure strings and hashes like in
- * the spect, i had to produce
- * the same print. This is by no way reliable enougth to be used to test
+ * Warning: in other to produce the same disclosure strings and hashes like in
+ * the spec, i had to produce
+ * the same print. This is by no way reliable enough to be used to test
  * conformity to the spec.
  * 
  * @author <a href="mailto:francis.pouatcha@adorsys.com">Francis Pouatcha</a>
@@ -55,8 +52,8 @@ public class TestCompareSdJwt {
 
         assertEquals(e.getPayload(), a.getPayload());
 
-        List<String> expectedJwsStrings = Arrays.asList(e.getJwsString().split("\\."));
-        List<String> actualJwsStrings = Arrays.asList(a.getJwsString().split("\\."));
+        List<String> expectedJwsStrings = Arrays.asList(e.toJws().split("\\."));
+        List<String> actualJwsStrings = Arrays.asList(a.toJws().split("\\."));
 
         // compare json content of header
         assertEquals(toJsonNode(expectedJwsStrings.get(0)), toJsonNode(actualJwsStrings.get(0)));
@@ -71,7 +68,7 @@ public class TestCompareSdJwt {
         Set<JsonNode> expectedDisclosures = expectedSdJwt.getDisclosuresString().stream()
                 .map(TestCompareSdJwt::toJsonNode)
                 .collect(Collectors.toSet());
-        Set<JsonNode> actualDisclosures = expectedSdJwt.getDisclosuresString().stream()
+        Set<JsonNode> actualDisclosures = actualSdJwt.getDisclosuresString().stream()
                 .map(TestCompareSdJwt::toJsonNode)
                 .collect(Collectors.toSet());
 
@@ -92,7 +89,7 @@ public class TestCompareSdJwt {
 
     private static JsonNode toJsonNode(String base64EncodedString) {
         try {
-            return SdJwtUtils.mapper.readTree(Base64Url.decode(base64EncodedString));
+            return SdJwtUtils.mapper.readTree(new Base64URL(base64EncodedString).decode());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

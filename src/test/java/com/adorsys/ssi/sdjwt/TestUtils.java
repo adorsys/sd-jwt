@@ -2,7 +2,6 @@
 package com.adorsys.ssi.sdjwt;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import org.keycloak.sdjwt.SdJwtUtils;
 
 import java.io.BufferedReader;
 import java.io.IOException;

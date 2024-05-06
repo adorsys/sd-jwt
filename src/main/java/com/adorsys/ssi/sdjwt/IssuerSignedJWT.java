@@ -1,36 +1,39 @@
 
 package com.adorsys.ssi.sdjwt;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSObject;
+import com.nimbusds.jose.JWSSigner;
+import com.nimbusds.jose.util.Base64URL;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import org.keycloak.crypto.SignatureSignerContext;
-import org.keycloak.jose.jws.JWSInput;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-
 /**
  * Handle verifiable credentials (SD-JWT VC), enabling the parsing
  * of existing VCs as well as the creation and signing of new ones.
- * It integrates with Keycloak's SignatureSignerContext to facilitate
+ * It integrates with JOSE's JWSSigner to facilitate
  * the generation of issuer signature.
  *
  * @author <a href="mailto:francis.pouatcha@adorsys.com">Francis Pouatcha</a>
  */
 public class IssuerSignedJWT extends SdJws {
 
-    public static IssuerSignedJWT fromJws(String jwsString) {
-        return new IssuerSignedJWT(jwsString);
+    public IssuerSignedJWT(JsonNode payload, JWSSigner signer, String keyId, JWSAlgorithm jwsAlgorithm, String jwsType) {
+        super(payload, signer, keyId, jwsAlgorithm, jwsType);
+    }
+    public IssuerSignedJWT(Base64URL payloadBase64URL, JWSSigner signer, String keyId, JWSAlgorithm jwsAlgorithm, String jwsType) {
+        super(payloadBase64URL, signer, keyId, jwsAlgorithm, jwsType);
     }
 
-    public IssuerSignedJWT toSignedJWT(SignatureSignerContext signer, String jwsType) {
-        JWSInput jwsInput = sign(getPayload(), signer, jwsType);
-        return new IssuerSignedJWT(getPayload(), jwsInput);
+    public static IssuerSignedJWT fromJws(String jwsString) {
+        return new IssuerSignedJWT(jwsString);
     }
 
     private IssuerSignedJWT(String jwsString) {
@@ -42,13 +45,13 @@ public class IssuerSignedJWT extends SdJws {
         super(generatePayloadString(claims, decoyClaims, hashAlg, nestedDisclosures));
     }
 
-    private IssuerSignedJWT(JsonNode payload, JWSInput jwsInput) {
+    private IssuerSignedJWT(JsonNode payload, JWSObject jwsInput) {
         super(payload, jwsInput);
     }
 
     private IssuerSignedJWT(List<SdJwtClaim> claims, List<DecoyClaim> decoyClaims, String hashAlg,
-                            boolean nestedDisclosures, SignatureSignerContext signer, String jwsType) {
-        super(generatePayloadString(claims, decoyClaims, hashAlg, nestedDisclosures), signer, jwsType);
+                            boolean nestedDisclosures, JWSSigner signer, String keyId, JWSAlgorithm jwsAlgorithm, String jwsType) {
+        super(generatePayloadString(claims, decoyClaims, hashAlg, nestedDisclosures), signer, keyId, jwsAlgorithm, jwsType);
     }
 
     /*
@@ -63,7 +66,6 @@ public class IssuerSignedJWT extends SdJws {
                 : Collections.unmodifiableList(claims);
         final List<DecoyClaim> decoyClaimsInternal = decoyClaims == null ? Collections.emptyList()
                 : Collections.unmodifiableList(decoyClaims);
-
         try {
             // Check no dupplicate claim names
             claimsInternal.stream()
@@ -96,11 +98,11 @@ public class IssuerSignedJWT extends SdJws {
 
         ObjectNode payload = SdJwtUtils.mapper.createObjectNode();
 
-        if (sdArray.size() > 0) {
+        if (!sdArray.isEmpty()) {
             // drop _sd claim if empty
             payload.set(CLAIM_NAME_SELECTIVE_DISCLOSURE, sdArray);
         }
-        if (sdArray.size() > 0 || nestedDisclosures) {
+        if (!sdArray.isEmpty() || nestedDisclosures) {
             // add sd alg only if ay disclosure.
             payload.put(CLAIM_NAME_SD_HASH_ALGORITHM, hashAlg);
         }
@@ -131,7 +133,8 @@ public class IssuerSignedJWT extends SdJws {
     public static class Builder {
         private List<SdJwtClaim> claims;
         private String hashAlg;
-        private SignatureSignerContext signer;
+        private JWSSigner signer;
+        private String keyId;
         private List<DecoyClaim> decoyClaims;
         private boolean nestedDisclosures;
         private String jwsType;
@@ -151,8 +154,13 @@ public class IssuerSignedJWT extends SdJws {
             return this;
         }
 
-        public Builder withSigner(SignatureSignerContext signer) {
+        public Builder withSigner(JWSSigner signer) {
             this.signer = signer;
+            return this;
+        }
+
+        public Builder withKeyId(String keyId){
+            this.keyId = keyId;
             return this;
         }
 
@@ -174,7 +182,7 @@ public class IssuerSignedJWT extends SdJws {
             claims = claims == null ? Collections.emptyList() : claims;
             decoyClaims = decoyClaims == null ? Collections.emptyList() : decoyClaims;
             if (signer != null) {
-                return new IssuerSignedJWT(claims, decoyClaims, hashAlg, nestedDisclosures, signer, jwsType);
+                return new IssuerSignedJWT(claims, decoyClaims, hashAlg, nestedDisclosures, signer, keyId, JWSAlgorithm.ES256, jwsType);
             } else {
                 return new IssuerSignedJWT(claims, decoyClaims, hashAlg, nestedDisclosures);
             }

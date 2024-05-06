@@ -3,9 +3,6 @@ package com.adorsys.ssi.sdjwt;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.Test;
-import org.keycloak.sdjwt.DisclosureSpec;
-import org.keycloak.sdjwt.IssuerSignedJWT;
-import org.keycloak.sdjwt.SdJwt;
 
 import static org.junit.Assert.assertEquals;
 
@@ -18,7 +15,7 @@ public class ArrayElementDisclosureTest {
         public void testSdJwtWithUndiclosedArrayElements6_1() {
                 JsonNode claimSet = TestUtils.readClaimSet(getClass(), "sdjwt/s6.1-holder-claims.json");
 
-                org.keycloak.sdjwt.DisclosureSpec disclosureSpec = org.keycloak.sdjwt.DisclosureSpec.builder()
+                DisclosureSpec disclosureSpec = DisclosureSpec.builder()
                                 .withUndisclosedClaim("email", "JnwGqRFZjMprsoZobherdQ")
                                 .withUndisclosedClaim("phone_number", "ffZ03jm_zeHyG4-yoNt6vg")
                                 .withUndisclosedClaim("address", "INhOGJnu82BAtsOwiCJc_A")
@@ -26,12 +23,12 @@ public class ArrayElementDisclosureTest {
                                 .withUndisclosedArrayElt("nationalities", 1, "nPuoQnkRFq3BIeAm7AnXFA")
                                 .build();
 
-                org.keycloak.sdjwt.SdJwt sdJwt = org.keycloak.sdjwt.SdJwt.builder()
+                SdJwt sdJwt = SdJwt.builder()
                                 .withDisclosureSpec(disclosureSpec)
                                 .withClaimSet(claimSet)
                                 .build();
 
-                org.keycloak.sdjwt.IssuerSignedJWT jwt = sdJwt.getIssuerSignedJWT();
+                IssuerSignedJWT jwt = sdJwt.getIssuerSignedJWT();
 
                 JsonNode expected = TestUtils.readClaimSet(getClass(),
                                 "sdjwt/s6.1-issuer-payload-udisclosed-array-ellement.json");
@@ -42,7 +39,7 @@ public class ArrayElementDisclosureTest {
         public void testSdJwtWithUndiclosedAndDecoyArrayElements6_1() {
                 JsonNode claimSet = TestUtils.readClaimSet(getClass(), "sdjwt/s6.1-holder-claims.json");
 
-                org.keycloak.sdjwt.DisclosureSpec disclosureSpec = DisclosureSpec.builder()
+                DisclosureSpec disclosureSpec = DisclosureSpec.builder()
                                 .withUndisclosedClaim("email", "JnwGqRFZjMprsoZobherdQ")
                                 .withUndisclosedClaim("phone_number", "ffZ03jm_zeHyG4-yoNt6vg")
                                 .withUndisclosedClaim("address", "INhOGJnu82BAtsOwiCJc_A")
@@ -52,7 +49,7 @@ public class ArrayElementDisclosureTest {
                                 .withDecoyArrayElt("nationalities", 1, "5bPs1IquZNa0hkaFzzzZNw")
                                 .build();
 
-                org.keycloak.sdjwt.SdJwt sdJwt = SdJwt.builder()
+                SdJwt sdJwt = SdJwt.builder()
                                 .withDisclosureSpec(disclosureSpec)
                                 .withClaimSet(claimSet)
                                 .build();

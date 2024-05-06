@@ -7,13 +7,15 @@
     "key_size": 256,
     "kty": "EC",
     "issuer_key": {
-      "kty": "EC",
+      "kid": "doc-signer-05-25-2022",
+       "kty": "EC",
       "d": "Ur2bNKuBPOrAaxsRnbSH6hIhmNTxSGXshDSUD1a1y7g",
       "crv": "P-256",
       "x": "b28d4MwZMjw8-00CG4xfnn9SLMVMM19SlqZpVb_uNtQ",
       "y": "Xv5zWwuoaTgdS6hV43yI6gBwTnjukmFQQnJ_kCxzqk8"
     },
     "holder_key": {
+      "kid": "holder",
       "kty": "EC",
       "d": "5K5SCos8zf9zRemGGUl6yfok-_NiiryNZsvANWMhF-I",
       "crv": "P-256",
@@ -25,5 +27,6 @@
   "expiry_seconds": 86400000,
   "random_seed": 0,
   "iat": 1683000000,
-  "exp": 1883000000
+  "exp": 1883000000,
+  "jwsAlgorithm": "ES256"
 }
