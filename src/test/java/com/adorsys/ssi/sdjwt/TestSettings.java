@@ -56,14 +56,16 @@ public class TestSettings {
         jwsAlgorithm = JWSAlgorithm.parse(testSettings.get("jwsAlgorithm").asText());
     }
 
-    private ECKey loadOrCreateECKey(JsonNode keySettings, String keyName) throws ParseException, JOSEException {
+    private ECKey loadOrCreateECKey(JsonNode keySettings, String keyName) throws ParseException {
         // private constructor
         JsonNode keySetting = keySettings.get(keyName);
         return parseJwk(keySetting).toECKey(); // Where 'keyData' is your JWK
     }
 
     public static JWSVerifier verifierContextFrom(JsonNode keyData, String algorithm) throws ParseException, JOSEException {
-        return new ECDSAVerifier(parseJwk(keyData).toECKey().toECPublicKey());
+        if(JWSAlgorithm.ES256.toString().equals(algorithm))
+            return new ECDSAVerifier(parseJwk(keyData).toECKey().toECPublicKey());
+        throw new IllegalArgumentException("Algorithm " + algorithm + " not supported. Supports only ES256 for now");
     }
 
     private static JWK parseJwk(JsonNode keySetting) throws ParseException {

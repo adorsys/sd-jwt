@@ -117,7 +117,6 @@ public class SdJwtVPTest {
         Base64URL parsedPart = parse.getParsedParts()[1];
 
         IssuerSignedJWT issuerSignedJWT = new IssuerSignedJWT(parsedPart, testSettings.issuerSigContext.signer, testSettings.issuerSigContext.keyId, testSettings.jwsAlgorithm, "vc+sd-jwt");
-        String jws1 = issuerSignedJWT.toJws();
 
         sdJwtVP.getIssuerSignedJWT().verifySignature(testSettings.issuerVerifierContext.verifier);
     }

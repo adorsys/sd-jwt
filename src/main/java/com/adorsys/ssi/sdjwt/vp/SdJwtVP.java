@@ -86,7 +86,6 @@ public class SdJwtVP {
         IssuerSignedJWT issuerSignedJWT = IssuerSignedJWT.fromJws(issuerSignedJWTString);
 
         ObjectNode issuerPayload = (ObjectNode) issuerSignedJWT.getPayload();
-        String prettyString = issuerPayload.toPrettyString();
         JsonNode jsonNode = issuerPayload.get(IssuerSignedJWT.CLAIM_NAME_SD_HASH_ALGORITHM);
         JsonNodeType nodeType = jsonNode.getNodeType();
         String hashAlgorithm = jsonNode.asText();

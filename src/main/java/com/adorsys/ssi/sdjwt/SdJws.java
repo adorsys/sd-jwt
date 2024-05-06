@@ -1,9 +1,7 @@
 
 package com.adorsys.ssi.sdjwt;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.util.Base64URL;
 
@@ -86,7 +84,7 @@ public abstract class SdJws {
         this.jwsString= signedJwt.serialize();
     }
 
-    public void verifySignature(JWSVerifier verifier) throws JOSEException, JOSEException {
+    public void verifySignature(JWSVerifier verifier) throws JOSEException {
         if (!this.signedJwt.verify(verifier)) {
             throw new JOSEException("Invalid JWS signature");
         }
