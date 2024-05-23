@@ -1,10 +1,14 @@
 
 package com.adorsys.ssi.sdjwt;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.nimbusds.jose.JWSSigner;
 import org.junit.Test;
+
+import java.security.GeneralSecurityException;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -13,10 +17,12 @@ import static org.junit.Assert.assertNotNull;
  * @author <a href="mailto:francis.pouatcha@adorsys.com">Francis Pouatcha</a>
  */
 public class SdJwtTest {
+        static ObjectMapper mapper = new ObjectMapper();
+        static TestSettings testSettings = TestSettings.getInstance();
 
         @Test
         public void settingsTest() {
-                JWSSigner issuerSignerContext = TestSettings.getInstance().issuerSigContext.signer;
+                JWSSigner issuerSignerContext = testSettings.issuerSigContext.signer;
                 assertNotNull(issuerSignerContext);
         }
 
@@ -86,4 +92,31 @@ public class SdJwtTest {
                 assertEquals(10, sdJwt.getDisclosures().size());
         }
 
+        @Test
+        public void testFlatSdJwtVerification() throws GeneralSecurityException {
+            var sdJwt = exampleFlatSdJwtV1()
+                    .withHashAlgorithm("sha-512")
+                    .build();
+
+            sdJwt.verify(testSettings.issuerVerifierContext.verifier);
+        }
+
+        private SdJwt.Builder exampleFlatSdJwtV1() {
+            ObjectNode claimSet = mapper.createObjectNode();
+            claimSet.put("sub", "6c5c0a49-b589-431d-bae7-219122a9ec2c");
+            claimSet.put("given_name", "John");
+            claimSet.put("family_name", "Doe");
+            claimSet.put("email", "john.doe@example.com");
+
+            DisclosureSpec disclosureSpec = DisclosureSpec.builder()
+                    .withUndisclosedClaim("given_name", "eluV5Og3gSNII8EYnsxA_A")
+                    .withUndisclosedClaim("family_name", "6Ij7tM-a5iVPGboS5tmvVA")
+                    .withUndisclosedClaim("email", "eI8ZWm9QnKPpNPeNenHdhQ")
+                    .build();
+
+            return SdJwt.builder()
+                    .withDisclosureSpec(disclosureSpec)
+                    .withClaimSet(claimSet)
+                    .withSigner(testSettings.issuerSigContext.signer);
+        }
 }

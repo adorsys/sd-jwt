@@ -1,21 +1,20 @@
 
 package com.adorsys.ssi.sdjwt;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
 import com.adorsys.ssi.sdjwt.vp.KeyBindingJWT;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSSigner;
+import com.nimbusds.jose.JWSVerifier;
+
+import java.security.GeneralSecurityException;
+import java.security.SignatureException;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Main entry class for selective disclosure jwt (SD-JWT).
@@ -64,10 +63,7 @@ public class SdJwt {
     /**
      * Prepare to a nested payload to this SD-JWT.
      * <p>
-     * droping the algo claim.
-     *
-     * @param nestedSdJwt
-     * @return
+     * dropping the algo claim.
      */
     public JsonNode asNestedPayload() {
         JsonNode nestedPayload = issuerSignedJWT.getPayload();
@@ -181,6 +177,82 @@ public class SdJwt {
         return disclosures;
     }
 
+    /**
+     * Verifies SD-JWT as to whether the Issuer-signed JWT's signature and disclosures are valid.
+     *
+     * <p>Upon receiving an SD-JWT, a Holder or a Verifier needs to ensure that:</p>
+     * - the Issuer-signed JWT is valid, i.e., it is signed by the Issuer and the signature is valid, and
+     * - all Disclosures are valid and correspond to a respective digest value in the Issuer-signed JWT
+     * (directly in the payload or recursively included in the contents of other Disclosures).
+     *
+     * @param verifier Context to validate the Issuer-signed JWT. The caller is responsible for
+     *                 establishing trust in that associated public keys belong to the issuer.
+     * @throws GeneralSecurityException if verification failed
+     */
+    public void verify(JWSVerifier verifier) throws GeneralSecurityException {
+        // Validate the Issuer-signed JWT
+        validateIssuerSignedJwt(verifier);
+
+        // Validate disclosures
+        validateDisclosuresDigests();
+    }
+
+    private void validateIssuerSignedJwt(JWSVerifier verifier) throws GeneralSecurityException {
+        var issuerSignedJwt = getIssuerSignedJWT();
+
+        // Check that the _sd_alg claim value is understood and the hash algorithm is deemed secure
+        issuerSignedJwt.verifySdHashAlgorithm();
+
+        // Validate the signature over the Issuer-signed JWT
+        try {
+            issuerSignedJwt.verifySignature(verifier);
+        } catch (JOSEException e) {
+            throw new SignatureException("Invalid Issuer-Signed JWT", e);
+        }
+    }
+
+    private void validateDisclosuresDigests() throws GeneralSecurityException {
+        // Identify all embedded digests in the Issuer-signed JWT
+        var digests = collectAllDigests(getIssuerSignedJWT().getPayload());
+        System.out.println(digests);
+
+        // Recalculate digests
+//        var recalculatedDigests = disclosures.stream()
+//                .map(String::getBytes)
+//                .map(bytes -> SdJwtUtils.encodeNoPad(SdJwtUtils.hash(bytes, )))
+    }
+
+    // Recursively collect all digests.
+    private List<String> collectAllDigests(JsonNode node) {
+        var collected = new ArrayList<String>();
+
+        if (!node.isObject() && !node.isArray()) {
+            return collected;
+        }
+
+        if (node.isObject()) {
+            // Collect "_sd" arrays
+            var sdArray = node.get(IssuerSignedJWT.CLAIM_NAME_SELECTIVE_DISCLOSURE);
+            if (sdArray != null && sdArray.isArray()) {
+                sdArray.forEach(el -> collected.add(el.asText()));
+            }
+
+            // Collect "..." fields — It must be the only field of the current node
+            var it = node.fields();
+            var field = it.next();
+            if (!it.hasNext() && field != null && field.getKey().equals("...")) {
+                collected.add(field.getValue().asText());
+            }
+        }
+
+        for (JsonNode child : node) {
+            collected.addAll(collectAllDigests(child));
+        }
+
+        return collected;
+    }
+
+
     // builder for SdJwt
     public static class Builder {
         private DisclosureSpec disclosureSpec;
@@ -212,7 +284,7 @@ public class SdJwt {
             return this;
         }
 
-        public Builder withKeyId(String keyId){
+        public Builder withKeyId(String keyId) {
             this.keyId = keyId;
             return this;
         }

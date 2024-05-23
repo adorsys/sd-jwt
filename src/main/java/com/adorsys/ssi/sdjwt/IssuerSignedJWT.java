@@ -9,10 +9,8 @@ import com.nimbusds.jose.JWSObject;
 import com.nimbusds.jose.JWSSigner;
 import com.nimbusds.jose.util.Base64URL;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.security.GeneralSecurityException;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -28,6 +26,7 @@ public class IssuerSignedJWT extends SdJws {
     public IssuerSignedJWT(JsonNode payload, JWSSigner signer, String keyId, JWSAlgorithm jwsAlgorithm, String jwsType) {
         super(payload, signer, keyId, jwsAlgorithm, jwsType);
     }
+
     public IssuerSignedJWT(Base64URL payloadBase64URL, JWSSigner signer, String keyId, JWSAlgorithm jwsAlgorithm, String jwsType) {
         super(payloadBase64URL, signer, keyId, jwsAlgorithm, jwsType);
     }
@@ -121,6 +120,28 @@ public class IssuerSignedJWT extends SdJws {
         return payload;
     }
 
+    /**
+     * Verify that the SD hash algorithm is understood and deemed secure.
+     *
+     * @throws GeneralSecurityException if not
+     */
+    public void verifySdHashAlgorithm() throws GeneralSecurityException {
+        // Known secure algorithms
+        final Set<String> secureAlgorithms = Set.of(
+                "sha-256", "sha-384", "sha-512",
+                "sha3-256", "sha3-384", "sha3-512"
+        );
+
+        // Read SD hash claim
+        var hashAlgNode = getPayload().get(CLAIM_NAME_SD_HASH_ALGORITHM);
+        String hashAlg = hashAlgNode.asText("sha-256");
+
+        // Safeguard algorithm
+        if (!secureAlgorithms.contains(hashAlg)) {
+            throw new GeneralSecurityException("Unexpected or insecure hash algorithm: " + hashAlg);
+        }
+    }
+
     // SD-JWT Claims
     public static final String CLAIM_NAME_SELECTIVE_DISCLOSURE = "_sd";
     public static final String CLAIM_NAME_SD_HASH_ALGORITHM = "_sd_alg";
@@ -159,7 +180,7 @@ public class IssuerSignedJWT extends SdJws {
             return this;
         }
 
-        public Builder withKeyId(String keyId){
+        public Builder withKeyId(String keyId) {
             this.keyId = keyId;
             return this;
         }
