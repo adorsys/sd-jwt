@@ -1,6 +1,7 @@
 
 package com.adorsys.ssi.sdjwt;
 
+import com.adorsys.ssi.sdjwt.exception.SdJwtVerificationException;
 import com.adorsys.ssi.sdjwt.vp.KeyBindingJWT;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -11,7 +12,6 @@ import com.nimbusds.jose.JWSSigner;
 import com.nimbusds.jose.JWSVerifier;
 
 import java.security.GeneralSecurityException;
-import java.security.SignatureException;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -27,6 +27,7 @@ public class SdJwt {
     private final IssuerSignedJWT issuerSignedJWT;
     private final List<SdJwtClaim> claims;
     private final List<String> disclosures = new ArrayList<>();
+    private Optional<String> sdJwtString = Optional.empty();
 
     private SdJwt(DisclosureSpec disclosureSpec, JsonNode claimSet, List<SdJwt> nesteSdJwts,
                   Optional<KeyBindingJWT> keyBindingJWT,
@@ -51,8 +52,6 @@ public class SdJwt {
         nesteSdJwts.stream().forEach(nestedJwt -> this.disclosures.addAll(nestedJwt.getDisclosures()));
         this.disclosures.addAll(getDisclosureStrings(claims));
     }
-
-    private Optional<String> sdJwtString = Optional.empty();
 
     private List<DecoyClaim> createdDecoyClaims(DisclosureSpec disclosureSpec) {
         return disclosureSpec.getDecoyClaims().stream()
@@ -197,7 +196,7 @@ public class SdJwt {
         validateDisclosuresDigests();
     }
 
-    private void validateIssuerSignedJwt(JWSVerifier verifier) throws GeneralSecurityException {
+    private void validateIssuerSignedJwt(JWSVerifier verifier) throws SdJwtVerificationException {
         var issuerSignedJwt = getIssuerSignedJWT();
 
         // Check that the _sd_alg claim value is understood and the hash algorithm is deemed secure
@@ -207,51 +206,157 @@ public class SdJwt {
         try {
             issuerSignedJwt.verifySignature(verifier);
         } catch (JOSEException e) {
-            throw new SignatureException("Invalid Issuer-Signed JWT", e);
+            throw new SdJwtVerificationException("Invalid Issuer-Signed JWT", e);
         }
     }
 
     private void validateDisclosuresDigests() throws GeneralSecurityException {
-        // Identify all embedded digests in the Issuer-signed JWT
-        var digests = collectAllDigests(getIssuerSignedJWT().getPayload());
-        System.out.println(digests);
+        var issuerSignedJwt = getIssuerSignedJWT();
 
-        // Recalculate digests
-//        var recalculatedDigests = disclosures.stream()
-//                .map(String::getBytes)
-//                .map(bytes -> SdJwtUtils.encodeNoPad(SdJwtUtils.hash(bytes, )))
+        // Map disclosures (value) to their digests (key)
+        var disclosureMap = computeIssuerSignedJwtDigestDisclosureMap();
+
+        // Validate SdJwt digests by attempting full recursive disclosing.
+        Set<String> visitedDisclosureStrings = new HashSet<>();
+        validateViaRecursiveDisclosing(issuerSignedJwt.getPayload(), disclosureMap, visitedDisclosureStrings);
+
+        System.out.println(visitedDisclosureStrings);
     }
 
-    // Recursively collect all digests.
-    private List<String> collectAllDigests(JsonNode node) {
-        var collected = new ArrayList<String>();
-
-        if (!node.isObject() && !node.isArray()) {
-            return collected;
+    /**
+     * Validate SdJwt digests by attempting full recursive disclosing.
+     *
+     * <p>
+     * By recursively disclosing all disclosable fields in the SdJwt payload, validation rules are
+     * enforced regarding the conformance of linked disclosures. Additional rules should be enforced
+     * after calling this method based on the visited data arguments.
+     * </p>
+     */
+    private void validateViaRecursiveDisclosing(
+            JsonNode currentNode,
+            Map<String, String> disclosureMap,
+            Set<String> visitedDisclosureStrings
+    ) throws SdJwtVerificationException {
+        if (!currentNode.isObject() && !currentNode.isArray()) {
+            return;
         }
 
-        if (node.isObject()) {
-            // Collect "_sd" arrays
-            var sdArray = node.get(IssuerSignedJWT.CLAIM_NAME_SELECTIVE_DISCLOSURE);
+        // Find all objects having an _sd key that refers to an array of strings.
+        if (currentNode.isObject()) {
+            var sdArray = currentNode.get(IssuerSignedJWT.CLAIM_NAME_SELECTIVE_DISCLOSURE);
             if (sdArray != null && sdArray.isArray()) {
-                sdArray.forEach(el -> collected.add(el.asText()));
-            }
+                for (var el : sdArray) {
+                    // Compare the value with the digests calculated previously and find the matching Disclosure.
+                    // If no such Disclosure can be found, the digest MUST be ignored.
 
-            // Collect "..." fields — It must be the only field of the current node
-            var it = node.fields();
-            var field = it.next();
-            if (!it.hasNext() && field != null && field.getKey().equals("...")) {
-                collected.add(field.getValue().asText());
+                    var digest = el.asText();
+                    var disclosure = disclosureMap.get(digest);
+
+                    if (disclosure != null) {
+                        // Mark disclosure as visited
+                        visitedDisclosureStrings.add(disclosure);
+
+                        // Validate disclosure format
+                        var claim = validateSdArrayDigestDisclosureFormat(disclosure);
+
+                        // Insert, at the level of the _sd key, a new claim using the claim name
+                        // and claim value from the Disclosure
+                        ((ObjectNode) currentNode).set(
+                                claim.getClaimNameAsString(),
+                                claim.getVisibleClaimValue(null)
+                        );
+                    }
+                }
             }
         }
 
-        for (JsonNode child : node) {
-            collected.addAll(collectAllDigests(child));
+        // Find all array elements that are objects with one key, that key being ... and referring to a string
+        if (currentNode.isArray()) {
+            for (JsonNode childNode : currentNode) {
+                if (childNode.isObject() && childNode.size() == 1) {
+                    // Check single "..." field
+                    var field = childNode.fields().next();
+                    if (field.getKey().equals("...") && field.getValue().isTextual()) {
+                        // Compare the value with the digests calculated previously and find the matching Disclosure.
+                        // If no such Disclosure can be found, the digest MUST be ignored.
+
+                        var digest = field.getValue().asText();
+                        var disclosure = disclosureMap.get(digest);
+
+                        if (disclosure != null) {
+
+                        }
+                    }
+                }
+            }
         }
 
-        return collected;
+        for (JsonNode childNode : currentNode) {
+            validateViaRecursiveDisclosing(childNode, disclosureMap, visitedDisclosureStrings);
+        }
     }
 
+    /**
+     * Validate disclosure assuming digest was found in an object's _sd key.
+     *
+     * <p>
+     * If the contents of the respective Disclosure is not a JSON-encoded array of three elements
+     * (salt, claim name, claim value), the SD-JWT MUST be rejected.
+     * </p>
+     *
+     * <p>
+     * If the claim name is _sd or ..., the SD-JWT MUST be rejected.
+     * </p>
+     *
+     * @return decoded disclosure as visible claim
+     */
+    private VisibleSdJwtClaim validateSdArrayDigestDisclosureFormat(String disclosure)
+            throws SdJwtVerificationException {
+        try {
+            // Decode Base64URL-encoded disclosure
+            var decoded = new String(SdJwtUtils.decodeNoPad(disclosure));
+
+            // Parse the disclosure string into a JSON array
+            JsonNode jsonNode = SdJwtUtils.mapper.readTree(decoded);
+
+            // Check if the parsed JSON is an array
+            if (!jsonNode.isArray()) {
+                throw new SdJwtVerificationException("Disclosure is not a JSON array");
+            }
+
+            ArrayNode arrayNode = (ArrayNode) jsonNode;
+
+            // Check if the array has exactly three elements
+            if (arrayNode.size() != 3) {
+                throw new SdJwtVerificationException("Disclosure does not contain exactly three elements");
+            }
+
+            // If the claim name is _sd or ..., the SD-JWT MUST be rejected.
+            String claimName = arrayNode.get(1).asText();
+            if (List.of(IssuerSignedJWT.CLAIM_NAME_SELECTIVE_DISCLOSURE, "...").contains(claimName)) {
+                throw new SdJwtVerificationException("Disclosure claim name must not be '_sd' or '...'");
+            }
+
+            // Build claim
+            return VisibleSdJwtClaim.builder()
+                    .withClaimName(arrayNode.get(1).asText())
+                    .withClaimValue(arrayNode.get(2))
+                    .build();
+        } catch (Exception e) {
+            // Handle parsing errors and any validation errors
+            throw new SdJwtVerificationException("Disclosure format is unexpected", e);
+        }
+    }
+
+    private Map<String, String> computeIssuerSignedJwtDigestDisclosureMap() {
+        return disclosures.stream()
+                .map(disclosure -> {
+                    var digest = SdJwtUtils.hashAndBase64EncodeNoPad(
+                            disclosure.getBytes(), getIssuerSignedJWT().getSdHashAlg());
+                    return Map.entry(digest, disclosure);
+                })
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
 
     // builder for SdJwt
     public static class Builder {

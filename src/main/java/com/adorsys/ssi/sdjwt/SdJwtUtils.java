@@ -4,6 +4,7 @@ package com.adorsys.ssi.sdjwt;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.util.MinimalPrettyPrinter;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.nimbusds.jose.util.Base64URL;
@@ -12,6 +13,9 @@ import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -24,6 +28,10 @@ public class SdJwtUtils {
 
     public static String encodeNoPad(byte[] bytes) {
         return Base64URL.encode(bytes).toString();
+    }
+
+    public static byte[] decodeNoPad(String encoded) {
+        return Base64.getUrlDecoder().decode(encoded);
     }
 
     public static String hashAndBase64EncodeNoPad(byte[] disclosureBytes, String hashAlg) {
