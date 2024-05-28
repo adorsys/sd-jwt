@@ -85,7 +85,7 @@ public abstract class SdJws {
         this.jwsString= signedJwt.serialize();
     }
 
-    public void verifySignature(JWSVerifier verifier) throws JOSEException, JOSEException {
+    public void verifySignature(JWSVerifier verifier) throws JOSEException {
         if (!this.signedJwt.verify(verifier)) {
             throw new JOSEException("Invalid JWS signature");
         }

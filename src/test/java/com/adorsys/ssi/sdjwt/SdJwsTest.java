@@ -35,14 +35,14 @@ public class SdJwsTest {
     }
 
     @Test
-    public void testVerifySignature_WrongPublicKey() throws Exception {
+    public void testVerifySignature_WrongPublicKey() {
         SdJws sdJws = new SdJws(createPayload(), testSesstings.holderSigContext.signer, testSesstings.holderSigContext.keyId, JWSAlgorithm.ES256, "jwt") {
         };
         assertThrows(JOSEException.class, () -> sdJws.verifySignature(testSesstings.issuerVerifierContext.verifier));
     }
 
     @Test
-    public void testVerifyExpClaim_ExpiredJWT() throws JOSEException {
+    public void testVerifyExpClaim_ExpiredJWT() {
         JsonNode payload = createPayload();
         ((ObjectNode) payload).put("exp", Instant.now().minus(1, TimeUnit.HOURS.toChronoUnit()).getEpochSecond());
         SdJws sdJws = new SdJws(payload) {
@@ -60,7 +60,7 @@ public class SdJwsTest {
     }
 
     @Test
-    public void testVerifyNotBeforeClaim_Negative() throws JOSEException {
+    public void testVerifyNotBeforeClaim_Negative() {
         JsonNode payload = createPayload();
         ((ObjectNode) payload).put("nbf", Instant.now().plus(1, TimeUnit.HOURS.toChronoUnit()).getEpochSecond());
         SdJws sdJws = new SdJws(payload) {
