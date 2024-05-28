@@ -6,15 +6,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
-import com.nimbusds.jose.JWSSigner;
-import com.nimbusds.jose.JWSVerifier;
 import org.junit.Test;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 public class SdJwsTest {
     static TestSettings testSesstings = TestSettings.getInstance();
@@ -93,9 +92,45 @@ public class SdJwsTest {
     }
 
     @Test
-    public void testSignedJwsConstruction() throws JOSEException {
+    public void testSignedJwsConstruction() {
         SdJws sdJws = new SdJws(createPayload(), testSesstings.holderSigContext.signer, testSesstings.holderSigContext.keyId, JWSAlgorithm.ES256, "jwt") {
         };
         assertNotNull(sdJws.toJws());
+    }
+
+    @Test
+    public void testVerifyIssClaim_Negative() {
+        List<String> allowedIssuers = List.of("issuer1@sdjwt.com", "issuer2@sdjwt.com");
+        JsonNode payload = createPayload();
+        ((ObjectNode) payload).put("iss", "unknown-issuer@sdjwt.com");
+        SdJws sdJws = new SdJws(payload) {};
+        var exception = assertThrows(Exception.class, () -> sdJws.verifyIssClaim(allowedIssuers));
+        assertEquals("Unknown issuer: unknown-issuer@sdjwt.com", exception.getMessage());
+    }
+
+    @Test
+    public void testVerifyIssClaim_Positive() throws Exception {
+        List<String> allowedIssuers = List.of("issuer1@sdjwt.com", "issuer2@sdjwt.com");
+        JsonNode payload = createPayload();
+        ((ObjectNode) payload).put("iss", "issuer1@sdjwt.com");
+        SdJws sdJws = new SdJws(payload) {};
+        sdJws.verifyIssClaim(allowedIssuers);
+    }
+
+    @Test
+    public void testVerifyVctClaim_Negative() {
+        JsonNode payload = createPayload();
+        ((ObjectNode) payload).put("vct", "IdentityCredential");
+        SdJws sdJws = new SdJws(payload) {};
+        var exception = assertThrows(Exception.class, () -> sdJws.verifyVctClaim("PassportCredential"));
+        assertEquals("Invalid verifiable credential type: IdentityCredential", exception.getMessage());
+    }
+
+    @Test
+    public void testVerifyVctClaim_Positive() throws Exception {
+        JsonNode payload = createPayload();
+        ((ObjectNode) payload).put("vct", "IdentityCredential");
+        SdJws sdJws = new SdJws(payload) {};
+        sdJws.verifyVctClaim("IdentityCredential");
     }
 }

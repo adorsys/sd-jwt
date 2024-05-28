@@ -1,15 +1,14 @@
 
 package com.adorsys.ssi.sdjwt;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.util.Base64URL;
 
 import java.io.IOException;
 import java.text.ParseException;
 import java.time.Instant;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -110,6 +109,32 @@ public abstract class SdJws {
         long currentTime = Instant.now().getEpochSecond();
         if (("exp".equals(claimName) && currentTime >= claimTime) || ("nbf".equals(claimName) && currentTime < claimTime)) {
             throw new JOSEException(errorMessage);
+        }
+    }
+
+    /**
+     * Verifies that SD-JWT was issued by one of the provided issuers
+     */
+    public void verifyIssClaim(List<String> issuers) throws Exception {
+        JsonNode issuer = payload.get("iss");
+
+        if (issuer == null) {
+            throw new Exception("Missing 'iss' claim");
+        } else if (!issuers.contains(issuer.textValue())) {
+            throw new Exception("Unknown issuer: " + issuer.textValue());
+        }
+    }
+
+    /**
+     * Verifies that SD-JWT vct claim matches the expected one
+     */
+    public void verifyVctClaim(String vct) throws Exception  {
+        JsonNode vctNode = payload.get("vct");
+
+        if (vctNode == null) {
+            throw new Exception("Missing 'vct' claim");
+        } else if (!vct.equals(vctNode.textValue())) {
+            throw new Exception("Invalid verifiable credential type: " + vctNode.textValue());
         }
     }
 
