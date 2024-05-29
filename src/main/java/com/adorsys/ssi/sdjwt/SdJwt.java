@@ -11,7 +11,7 @@ import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSSigner;
 import com.nimbusds.jose.JWSVerifier;
 
-import java.security.GeneralSecurityException;
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -49,7 +49,7 @@ public class SdJwt {
                 .withJwsType(jwsType)
                 .build();
 
-        nesteSdJwts.stream().forEach(nestedJwt -> this.disclosures.addAll(nestedJwt.getDisclosures()));
+        nesteSdJwts.forEach(nestedJwt -> this.disclosures.addAll(nestedJwt.getDisclosures()));
         this.disclosures.addAll(getDisclosureStrings(claims));
     }
 
@@ -144,8 +144,7 @@ public class SdJwt {
         }
 
         if (decoyArrayElts != null) {
-            decoyArrayElts.entrySet().stream()
-                    .forEach(e -> arrayDisclosureBuilder.withDecoyElt(e.getKey(), e.getValue().getSalt()));
+            decoyArrayElts.forEach((key, value) -> arrayDisclosureBuilder.withDecoyElt(key, value.getSalt()));
         }
 
         return arrayDisclosureBuilder.build();
@@ -184,18 +183,36 @@ public class SdJwt {
      * - all Disclosures are valid and correspond to a respective digest value in the Issuer-signed JWT
      * (directly in the payload or recursively included in the contents of other Disclosures).
      *
-     * @param verifier Context to validate the Issuer-signed JWT. The caller is responsible for
-     *                 establishing trust in that associated public keys belong to the issuer.
-     * @throws GeneralSecurityException if verification failed
+     * @param verificationOptions Options to parametize the verification. A verifier must be specified
+     *                            for validating the Issuer-signed JWT. The caller is responsible for
+     *                            establishing trust in that associated public keys belong to the
+     *                            intended issuer.
+     * @throws SdJwtVerificationException if verification failed
      */
-    public void verify(JWSVerifier verifier) throws GeneralSecurityException {
-        // Validate the Issuer-signed JWT
-        validateIssuerSignedJwt(verifier);
+    public void verify(SdJwtVerificationOptions verificationOptions) throws SdJwtVerificationException {
+        // Validate the Issuer-signed JWT.
+        validateIssuerSignedJwt(verificationOptions.getVerifier());
 
-        // Validate disclosures
-        validateDisclosuresDigests();
+        // Validate disclosures.
+        var disclosedPayload = validateDisclosuresDigests();
+
+        // Validate time claims.
+        // Issuers will typically include claims controlling the validity of the SD-JWT in plaintext in the
+        // SD-JWT payload, but there is no guarantee they would do so. Therefore, Verifiers cannot reliably
+        // depend on that and need to operate as though security-critical claims might be selectively disclosable.
+        validateTimeClaims(disclosedPayload, verificationOptions);
     }
 
+    /**
+     * Validate Issuer-signed JWT
+     *
+     * <p>
+     * Upon receiving an SD-JWT, a Holder or a Verifier needs to ensure that:
+     * - the Issuer-signed JWT is valid, i.e., it is signed by the Issuer and the signature is valid
+     * </p>
+     *
+     * @throws SdJwtVerificationException if verification failed
+     */
     private void validateIssuerSignedJwt(JWSVerifier verifier) throws SdJwtVerificationException {
         var issuerSignedJwt = getIssuerSignedJWT();
 
@@ -210,7 +227,58 @@ public class SdJwt {
         }
     }
 
-    private void validateDisclosuresDigests() throws GeneralSecurityException {
+    /**
+     * Validate time claims.
+     *
+     * <p>
+     * Check that the SD-JWT is valid using claims such as nbf, iat, and exp in the processed payload.
+     * If a required validity-controlling claim is missing, the SD-JWT MUST be rejected.
+     * </p>
+     *
+     * @throws SdJwtVerificationException if verification failed
+     */
+    private void validateTimeClaims(JsonNode payload, SdJwtVerificationOptions verificationOptions)
+            throws SdJwtVerificationException {
+        long now = Instant.now().getEpochSecond();
+
+        if (verificationOptions.mustValidateIssuedAtClaim()
+                && now < readTimeClaim(payload, "iat")) {
+            throw new SdJwtVerificationException("JWT is issued in the future");
+        }
+
+        if (verificationOptions.mustValidateExpirationClaim()
+                && now >= readTimeClaim(payload, "exp")) {
+            throw new SdJwtVerificationException("JWT is expired");
+        }
+
+        if (verificationOptions.mustValidateNotBeforeClaim()
+                && now < readTimeClaim(payload, "nbf")) {
+            throw new SdJwtVerificationException("JWT is not yet valid");
+        }
+    }
+
+    private long readTimeClaim(JsonNode payload, String claimName) throws SdJwtVerificationException {
+        JsonNode claim = payload.get(claimName);
+        if (claim == null || !claim.isNumber()) {
+            throw new SdJwtVerificationException("Missing or invalid '" + claimName + "' claim");
+        }
+
+        return claim.asLong();
+    }
+
+    /**
+     * Validate disclosures' digests
+     *
+     * <p>
+     * Upon receiving an SD-JWT, a Holder or a Verifier needs to ensure that:
+     * - all Disclosures are valid and correspond to a respective digest value in the Issuer-signed JWT
+     * (directly in the payload or recursively included in the contents of other Disclosures)
+     * </p>
+     *
+     * @return the fully disclosed SdJwt payload
+     * @throws SdJwtVerificationException if verification failed
+     */
+    private JsonNode validateDisclosuresDigests() throws SdJwtVerificationException {
         var issuerSignedJwt = getIssuerSignedJWT();
 
         // Map disclosures (value) to their digests (key)
@@ -218,9 +286,13 @@ public class SdJwt {
 
         // Validate SdJwt digests by attempting full recursive disclosing.
         Set<String> visitedDisclosureStrings = new HashSet<>();
-        validateViaRecursiveDisclosing(issuerSignedJwt.getPayload(), disclosureMap, visitedDisclosureStrings);
+        var disclosedPayload = validateViaRecursiveDisclosing(
+                issuerSignedJwt.getPayload(), disclosureMap, visitedDisclosureStrings);
 
-        System.out.println(visitedDisclosureStrings);
+        // Validate all disclosures where visited
+        validateDisclosuresVisits(visitedDisclosureStrings);
+
+        return disclosedPayload;
     }
 
     /**
@@ -231,21 +303,31 @@ public class SdJwt {
      * enforced regarding the conformance of linked disclosures. Additional rules should be enforced
      * after calling this method based on the visited data arguments.
      * </p>
+     *
+     * @return the fully disclosed SdJwt payload
      */
-    private void validateViaRecursiveDisclosing(
+    private JsonNode validateViaRecursiveDisclosing(
             JsonNode currentNode,
             Map<String, String> disclosureMap,
             Set<String> visitedDisclosureStrings
     ) throws SdJwtVerificationException {
         if (!currentNode.isObject() && !currentNode.isArray()) {
-            return;
+            return currentNode;
         }
 
         // Find all objects having an _sd key that refers to an array of strings.
         if (currentNode.isObject()) {
-            var sdArray = currentNode.get(IssuerSignedJWT.CLAIM_NAME_SELECTIVE_DISCLOSURE);
+            var currentObjectNode = ((ObjectNode) currentNode);
+
+            var sdArray = currentObjectNode.get(IssuerSignedJWT.CLAIM_NAME_SELECTIVE_DISCLOSURE);
             if (sdArray != null && sdArray.isArray()) {
                 for (var el : sdArray) {
+                    if (!el.isTextual()) {
+                        throw new SdJwtVerificationException(
+                                "Unexpected non-string element inside _sd array: " + el
+                        );
+                    }
+
                     // Compare the value with the digests calculated previously and find the matching Disclosure.
                     // If no such Disclosure can be found, the digest MUST be ignored.
 
@@ -254,29 +336,41 @@ public class SdJwt {
 
                     if (disclosure != null) {
                         // Mark disclosure as visited
-                        visitedDisclosureStrings.add(disclosure);
+                        markDisclosureAsVisited(disclosure, visitedDisclosureStrings);
 
                         // Validate disclosure format
                         var claim = validateSdArrayDigestDisclosureFormat(disclosure);
 
                         // Insert, at the level of the _sd key, a new claim using the claim name
                         // and claim value from the Disclosure
-                        ((ObjectNode) currentNode).set(
+                        currentObjectNode.set(
                                 claim.getClaimNameAsString(),
                                 claim.getVisibleClaimValue(null)
                         );
                     }
                 }
             }
+
+            // Remove all _sd keys and their contents from the Issuer-signed JWT payload.
+            // If this results in an object with no properties, it should be represented as an empty object {}
+            currentObjectNode.remove(IssuerSignedJWT.CLAIM_NAME_SELECTIVE_DISCLOSURE);
+
+            // Remove the claim _sd_alg from the SD-JWT payload.
+            currentObjectNode.remove(IssuerSignedJWT.CLAIM_NAME_SD_HASH_ALGORITHM);
         }
 
         // Find all array elements that are objects with one key, that key being ... and referring to a string
         if (currentNode.isArray()) {
-            for (JsonNode childNode : currentNode) {
-                if (childNode.isObject() && childNode.size() == 1) {
+            var currentArrayNode = ((ArrayNode) currentNode);
+            var indexesToRemove = new ArrayList<Integer>();
+
+            for (int i = 0; i < currentArrayNode.size(); ++i) {
+                var itemNode = currentArrayNode.get(i);
+                if (itemNode.isObject() && itemNode.size() == 1) {
                     // Check single "..." field
-                    var field = childNode.fields().next();
-                    if (field.getKey().equals("...") && field.getValue().isTextual()) {
+                    var field = itemNode.fields().next();
+                    if (field.getKey().equals(UndisclosedArrayElement.SD_CLAIM_NAME)
+                            && field.getValue().isTextual()) {
                         // Compare the value with the digests calculated previously and find the matching Disclosure.
                         // If no such Disclosure can be found, the digest MUST be ignored.
 
@@ -284,15 +378,49 @@ public class SdJwt {
                         var disclosure = disclosureMap.get(digest);
 
                         if (disclosure != null) {
+                            // Mark disclosure as visited
+                            markDisclosureAsVisited(disclosure, visitedDisclosureStrings);
 
+                            // Validate disclosure format
+                            var claimValue = validateArrayElementDigestDisclosureFormat(disclosure);
+
+                            // Replace the array element with the value from the Disclosure.
+                            // Removal is done below.
+                            currentArrayNode.set(i, claimValue);
+                        } else {
+                            // Remove all array elements for which the digest was not found in the previous step.
+                            indexesToRemove.add(i);
                         }
                     }
                 }
             }
+
+            // Remove all array elements for which the digest was not found in the previous step.
+            indexesToRemove.forEach(currentArrayNode::remove);
         }
 
         for (JsonNode childNode : currentNode) {
             validateViaRecursiveDisclosing(childNode, disclosureMap, visitedDisclosureStrings);
+        }
+
+        return currentNode;
+    }
+
+    /**
+     * Mark disclosure as visited.
+     *
+     * <p>
+     * If any digest value is encountered more than once in the Issuer-signed JWT payload
+     * (directly or recursively via other Disclosures), the SD-JWT MUST be rejected.
+     * </p>
+     *
+     * @throws SdJwtVerificationException if not first visit
+     */
+    private void markDisclosureAsVisited(String disclosure, Set<String> visitedDisclosureStrings)
+            throws SdJwtVerificationException {
+        if (!visitedDisclosureStrings.add(disclosure)) {
+            // If add returns false, then it is a duplicate
+            throw new SdJwtVerificationException("A digest was encounted more than once: " + disclosure);
         }
     }
 
@@ -312,39 +440,69 @@ public class SdJwt {
      */
     private VisibleSdJwtClaim validateSdArrayDigestDisclosureFormat(String disclosure)
             throws SdJwtVerificationException {
-        try {
-            // Decode Base64URL-encoded disclosure
-            var decoded = new String(SdJwtUtils.decodeNoPad(disclosure));
+        ArrayNode arrayNode = SdJwtUtils.decodeDisclosureString(disclosure);
 
-            // Parse the disclosure string into a JSON array
-            JsonNode jsonNode = SdJwtUtils.mapper.readTree(decoded);
+        // Check if the array has exactly three elements
+        if (arrayNode.size() != 3) {
+            throw new SdJwtVerificationException("Disclosure does not contain exactly three elements");
+        }
 
-            // Check if the parsed JSON is an array
-            if (!jsonNode.isArray()) {
-                throw new SdJwtVerificationException("Disclosure is not a JSON array");
-            }
+        // If the claim name is _sd or ..., the SD-JWT MUST be rejected.
 
-            ArrayNode arrayNode = (ArrayNode) jsonNode;
+        var denylist = List.of(
+                IssuerSignedJWT.CLAIM_NAME_SELECTIVE_DISCLOSURE,
+                UndisclosedArrayElement.SD_CLAIM_NAME
+        );
 
-            // Check if the array has exactly three elements
-            if (arrayNode.size() != 3) {
-                throw new SdJwtVerificationException("Disclosure does not contain exactly three elements");
-            }
+        String claimName = arrayNode.get(1).asText();
+        if (denylist.contains(claimName)) {
+            throw new SdJwtVerificationException("Disclosure claim name must not be '_sd' or '...'");
+        }
 
-            // If the claim name is _sd or ..., the SD-JWT MUST be rejected.
-            String claimName = arrayNode.get(1).asText();
-            if (List.of(IssuerSignedJWT.CLAIM_NAME_SELECTIVE_DISCLOSURE, "...").contains(claimName)) {
-                throw new SdJwtVerificationException("Disclosure claim name must not be '_sd' or '...'");
-            }
+        // Build claim
+        return VisibleSdJwtClaim.builder()
+                .withClaimName(arrayNode.get(1).asText())
+                .withClaimValue(arrayNode.get(2))
+                .build();
+    }
 
-            // Build claim
-            return VisibleSdJwtClaim.builder()
-                    .withClaimName(arrayNode.get(1).asText())
-                    .withClaimValue(arrayNode.get(2))
-                    .build();
-        } catch (Exception e) {
-            // Handle parsing errors and any validation errors
-            throw new SdJwtVerificationException("Disclosure format is unexpected", e);
+    /**
+     * Validate disclosure assuming digest was found as an undisclosed array element.
+     *
+     * <p>
+     * If the contents of the respective Disclosure is not a JSON-encoded array of
+     * two elements (salt, value), the SD-JWT MUST be rejected.
+     * </p>
+     *
+     * @return decoded disclosure as visible claim (value only)
+     */
+    private JsonNode validateArrayElementDigestDisclosureFormat(String disclosure)
+            throws SdJwtVerificationException {
+        ArrayNode arrayNode = SdJwtUtils.decodeDisclosureString(disclosure);
+
+        // Check if the array has exactly two elements
+        if (arrayNode.size() != 2) {
+            throw new SdJwtVerificationException("Disclosure does not contain exactly two elements");
+        }
+
+        // Return value
+        return arrayNode.get(1);
+    }
+
+    /**
+     * Validate all disclosures where visited
+     *
+     * <p>
+     * If any Disclosure was not referenced by digest value in the Issuer-signed JWT (directly or recursively via
+     * other Disclosures), the SD-JWT MUST be rejected.
+     * </p>
+     *
+     * @throws SdJwtVerificationException if not the case
+     */
+    private void validateDisclosuresVisits(Set<String> visitedDisclosureStrings)
+            throws SdJwtVerificationException {
+        if (visitedDisclosureStrings.size() < disclosures.size()) {
+            throw new SdJwtVerificationException("At least one disclosure is not protected by digest");
         }
     }
 

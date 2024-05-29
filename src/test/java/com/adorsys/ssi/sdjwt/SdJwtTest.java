@@ -1,6 +1,7 @@
 
 package com.adorsys.ssi.sdjwt;
 
+import com.adorsys.ssi.sdjwt.exception.SdJwtVerificationException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -8,7 +9,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.nimbusds.jose.JWSSigner;
 import org.junit.Test;
 
-import java.security.GeneralSecurityException;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -93,12 +94,46 @@ public class SdJwtTest {
         }
 
         @Test
-        public void testFlatSdJwtVerification() throws GeneralSecurityException {
-            var sdJwt = exampleFlatSdJwtV1()
-                    .withHashAlgorithm("sha-512")
+        public void testSdJwtVerification_FlatSdJwt() throws SdJwtVerificationException {
+            for (String hashAlg : List.of("sha-256", "sha-384", "sha-512")) {
+                var sdJwt = exampleFlatSdJwtV1()
+                        .withHashAlgorithm(hashAlg)
+                        .build();
+
+                sdJwt.verify(SdJwtVerificationOptions.builder()
+                        .withVerifier(testSettings.issuerVerifierContext.verifier)
+                        .build());
+            }
+        }
+
+        @Test
+        public void testSdJwtVerification_SdJwtWithUndisclosedNestedFields() throws SdJwtVerificationException {
+            var sdJwt = exampleSdJwtWithUndisclosedNestedFieldsV1()
                     .build();
 
-            sdJwt.verify(testSettings.issuerVerifierContext.verifier);
+            sdJwt.verify(SdJwtVerificationOptions.builder()
+                    .withVerifier(testSettings.issuerVerifierContext.verifier)
+                    .build());
+        }
+
+        @Test
+        public void testSdJwtVerification_SdJwtWithUndisclosedArrayElements() throws Exception {
+            var sdJwt = exampleSdJwtWithUndisclosedArrayElementsV1()
+                    .build();
+
+            sdJwt.verify(SdJwtVerificationOptions.builder()
+                    .withVerifier(testSettings.issuerVerifierContext.verifier)
+                    .build());
+        }
+
+        @Test
+        public void testSdJwtVerification_RecursiveSdJwt() throws Exception {
+            var sdJwt = exampleRecursiveSdJwtV1()
+                    .build();
+
+            sdJwt.verify(SdJwtVerificationOptions.builder()
+                    .withVerifier(testSettings.issuerVerifierContext.verifier)
+                    .build());
         }
 
         private SdJwt.Builder exampleFlatSdJwtV1() {
@@ -112,6 +147,7 @@ public class SdJwtTest {
                     .withUndisclosedClaim("given_name", "eluV5Og3gSNII8EYnsxA_A")
                     .withUndisclosedClaim("family_name", "6Ij7tM-a5iVPGboS5tmvVA")
                     .withUndisclosedClaim("email", "eI8ZWm9QnKPpNPeNenHdhQ")
+                    .withDecoyClaim("G02NSrQfjFXQ7Io09syajA")
                     .build();
 
             return SdJwt.builder()
@@ -119,4 +155,101 @@ public class SdJwtTest {
                     .withClaimSet(claimSet)
                     .withSigner(testSettings.issuerSigContext.signer);
         }
+
+        private SdJwt.Builder exampleSdJwtWithUndisclosedNestedFieldsV1() {
+            ObjectNode addressClaimSet = mapper.createObjectNode();
+            addressClaimSet.put("street_address", "Rue des Oliviers");
+            addressClaimSet.put("city", "Paris");
+            addressClaimSet.put("country", "France");
+
+            DisclosureSpec addrDisclosureSpec = DisclosureSpec.builder()
+                    .withUndisclosedClaim("street_address", "AJx-095VPrpTtN4QMOqROA")
+                    .withUndisclosedClaim("city", "G02NSrQfjFXQ7Io09syajA")
+                    .withDecoyClaim("G02NSrQfjFXQ7Io09syajA")
+                    .build();
+
+            SdJwt addrSdJWT = SdJwt.builder()
+                    .withDisclosureSpec(addrDisclosureSpec)
+                    .withClaimSet(addressClaimSet)
+                    .build();
+
+            ObjectNode claimSet = mapper.createObjectNode();
+            claimSet.put("sub", "6c5c0a49-b589-431d-bae7-219122a9ec2c");
+            claimSet.put("given_name", "John");
+            claimSet.put("family_name", "Doe");
+            claimSet.put("email", "john.doe@example.com");
+            claimSet.set("address", addrSdJWT.asNestedPayload());
+
+            DisclosureSpec disclosureSpec = DisclosureSpec.builder()
+                    .withUndisclosedClaim("given_name", "eluV5Og3gSNII8EYnsxA_A")
+                    .withUndisclosedClaim("family_name", "6Ij7tM-a5iVPGboS5tmvVA")
+                    .withUndisclosedClaim("email", "eI8ZWm9QnKPpNPeNenHdhQ")
+                    .build();
+
+            return SdJwt.builder()
+                    .withDisclosureSpec(disclosureSpec)
+                    .withClaimSet(claimSet)
+                    .withNestedSdJwt(addrSdJWT)
+                    .withSigner(testSettings.issuerSigContext.signer);
+        }
+
+        private SdJwt.Builder exampleSdJwtWithUndisclosedArrayElementsV1() throws JsonProcessingException {
+            ObjectNode claimSet = mapper.createObjectNode();
+            claimSet.put("sub", "6c5c0a49-b589-431d-bae7-219122a9ec2c");
+            claimSet.put("given_name", "John");
+            claimSet.put("family_name", "Doe");
+            claimSet.put("email", "john.doe@example.com");
+            claimSet.set("nationalities", mapper.readTree("[\"US\", \"DE\"]"));
+
+            DisclosureSpec disclosureSpec = DisclosureSpec.builder()
+                    .withUndisclosedClaim("given_name", "eluV5Og3gSNII8EYnsxA_A")
+                    .withUndisclosedClaim("family_name", "6Ij7tM-a5iVPGboS5tmvVA")
+                    .withUndisclosedClaim("email", "eI8ZWm9QnKPpNPeNenHdhQ")
+                    .withUndisclosedArrayElt("nationalities", 1, "nPuoQnkRFq3BIeAm7AnXFA")
+                    .withDecoyArrayElt("nationalities", 2, "G02NSrQfjFXQ7Io09syajA")
+                    .build();
+
+            return SdJwt.builder()
+                    .withDisclosureSpec(disclosureSpec)
+                    .withClaimSet(claimSet)
+                    .withSigner(testSettings.issuerSigContext.signer);
+        }
+
+    private SdJwt.Builder exampleRecursiveSdJwtV1() {
+        ObjectNode addressClaimSet = mapper.createObjectNode();
+        addressClaimSet.put("street_address", "Rue des Oliviers");
+        addressClaimSet.put("city", "Paris");
+        addressClaimSet.put("country", "France");
+
+        DisclosureSpec addrDisclosureSpec = DisclosureSpec.builder()
+                .withUndisclosedClaim("street_address", "AJx-095VPrpTtN4QMOqROA")
+                .withUndisclosedClaim("city", "G02NSrQfjFXQ7Io09syajA")
+                .withDecoyClaim("G02NSrQfjFXQ7Io09syajA")
+                .build();
+
+        SdJwt addrSdJWT = SdJwt.builder()
+                .withDisclosureSpec(addrDisclosureSpec)
+                .withClaimSet(addressClaimSet)
+                .build();
+
+        ObjectNode claimSet = mapper.createObjectNode();
+        claimSet.put("sub", "6c5c0a49-b589-431d-bae7-219122a9ec2c");
+        claimSet.put("given_name", "John");
+        claimSet.put("family_name", "Doe");
+        claimSet.put("email", "john.doe@example.com");
+        claimSet.set("address", addrSdJWT.asNestedPayload());
+
+        DisclosureSpec disclosureSpec = DisclosureSpec.builder()
+                .withUndisclosedClaim("given_name", "eluV5Og3gSNII8EYnsxA_A")
+                .withUndisclosedClaim("family_name", "6Ij7tM-a5iVPGboS5tmvVA")
+                .withUndisclosedClaim("email", "eI8ZWm9QnKPpNPeNenHdhQ")
+                .withUndisclosedClaim("address", "BZFzhQsdPfZY1WSL-1GXKg")
+                .build();
+
+        return SdJwt.builder()
+                .withDisclosureSpec(disclosureSpec)
+                .withClaimSet(claimSet)
+                .withNestedSdJwt(addrSdJWT)
+                .withSigner(testSettings.issuerSigContext.signer);
+    }
 }

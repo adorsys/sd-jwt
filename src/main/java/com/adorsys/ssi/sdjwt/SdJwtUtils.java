@@ -1,21 +1,21 @@
 
 package com.adorsys.ssi.sdjwt;
 
+import com.adorsys.ssi.sdjwt.exception.SdJwtVerificationException;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.util.MinimalPrettyPrinter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.nimbusds.jose.util.Base64URL;
 
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.util.ArrayList;
 import java.util.Base64;
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -72,6 +72,27 @@ public class SdJwtUtils {
             throw new RuntimeException(e);
         }
         return digest.digest(bytes);
+    }
+
+    public static ArrayNode decodeDisclosureString(String disclosure) throws SdJwtVerificationException {
+        JsonNode jsonNode;
+
+        // Decode Base64URL-encoded disclosure
+        var decoded = new String(decodeNoPad(disclosure));
+
+        // Parse the disclosure string into a JSON array
+        try {
+            jsonNode = mapper.readTree(decoded);
+        } catch (JsonProcessingException e) {
+            throw new SdJwtVerificationException("Disclosure is not a valid JSON", e);
+        }
+
+        // Check if the parsed JSON is an array
+        if (!jsonNode.isArray()) {
+            throw new SdJwtVerificationException("Disclosure is not a JSON array");
+        }
+
+        return (ArrayNode) jsonNode;
     }
 
     static ArraySpacedPrettyPrinter arraySpacedPrettyPrinter = new ArraySpacedPrettyPrinter();
