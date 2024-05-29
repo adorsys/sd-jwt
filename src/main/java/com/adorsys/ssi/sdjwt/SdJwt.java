@@ -243,12 +243,12 @@ public class SdJwt {
 
         if (verificationOptions.mustValidateIssuedAtClaim()
                 && now < readTimeClaim(payload, "iat")) {
-            throw new SdJwtVerificationException("JWT is issued in the future");
+            throw new SdJwtVerificationException("JWT issued in the future");
         }
 
         if (verificationOptions.mustValidateExpirationClaim()
                 && now >= readTimeClaim(payload, "exp")) {
-            throw new SdJwtVerificationException("JWT is expired");
+            throw new SdJwtVerificationException("JWT has expired");
         }
 
         if (verificationOptions.mustValidateNotBeforeClaim()

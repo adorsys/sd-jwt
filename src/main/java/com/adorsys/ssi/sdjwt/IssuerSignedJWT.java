@@ -10,7 +10,6 @@ import com.nimbusds.jose.JWSObject;
 import com.nimbusds.jose.JWSSigner;
 import com.nimbusds.jose.util.Base64URL;
 
-import java.security.GeneralSecurityException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -147,7 +146,7 @@ public class IssuerSignedJWT extends SdJws {
      */
     public String getSdHashAlg() {
         var hashAlgNode = getPayload().get(CLAIM_NAME_SD_HASH_ALGORITHM);
-        return hashAlgNode.asText("sha-256");
+        return hashAlgNode == null ? "sha-256" : hashAlgNode.asText();
     }
 
     // SD-JWT Claims

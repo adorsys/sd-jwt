@@ -47,8 +47,8 @@ public class SdJwtVerificationOptions {
     public static class Builder {
         private JWSVerifier verifier;
         private boolean validateIssuedAtClaim;
-        private boolean validateExpirationClaim;
-        private boolean validateNotBeforeClaim;
+        private boolean validateExpirationClaim = true;
+        private boolean validateNotBeforeClaim = true;
 
         public Builder withVerifier(JWSVerifier verifier) {
             this.verifier = verifier;
