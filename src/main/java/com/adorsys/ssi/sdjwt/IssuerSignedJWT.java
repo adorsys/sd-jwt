@@ -14,6 +14,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -125,6 +126,21 @@ public class IssuerSignedJWT extends SdJws {
     }
 
     /**
+     * Returns Cnf claim (establishing key binding)
+     */
+    public Optional<JsonNode> getCnfClaim() {
+        return Optional.of(getPayload().get("cnf"));
+    }
+
+    /**
+     * Returns declared hash algorithm from SD hash claim.
+     */
+    public String getSdHashAlg() {
+        var hashAlgNode = getPayload().get(CLAIM_NAME_SD_HASH_ALGORITHM);
+        return hashAlgNode == null ? "sha-256" : hashAlgNode.asText();
+    }
+
+    /**
      * Verifies that the SD hash algorithm is understood and deemed secure.
      *
      * @throws SdJwtVerificationException if not
@@ -143,14 +159,6 @@ public class IssuerSignedJWT extends SdJws {
         if (!secureAlgorithms.contains(hashAlg)) {
             throw new SdJwtVerificationException("Unexpected or insecure hash algorithm: " + hashAlg);
         }
-    }
-
-    /**
-     * Returns declared hash algorithm from SD hash claim.
-     */
-    public String getSdHashAlg() {
-        var hashAlgNode = getPayload().get(CLAIM_NAME_SD_HASH_ALGORITHM);
-        return hashAlgNode == null ? "sha-256" : hashAlgNode.asText();
     }
 
     // SD-JWT Claims

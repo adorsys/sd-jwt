@@ -84,6 +84,10 @@ public abstract class SdJws {
         this.jwsString= signedJwt.serialize();
     }
 
+    public JsonNode getHeader() {
+        return SdJwtUtils.mapper.valueToTree(this.signedJwt.getHeader().toJSONObject());
+    }
+
     public void verifySignature(JWSVerifier verifier) throws JOSEException {
         if (!this.signedJwt.verify(verifier)) {
             throw new JOSEException("Invalid JWS signature");

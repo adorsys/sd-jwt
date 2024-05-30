@@ -4,6 +4,9 @@ package com.adorsys.ssi.sdjwt.vp;
 import com.adorsys.ssi.sdjwt.IssuerSignedJWT;
 import com.adorsys.ssi.sdjwt.SdJwt;
 import com.adorsys.ssi.sdjwt.SdJwtUtils;
+import com.adorsys.ssi.sdjwt.SdJwtVerificationContext;
+import com.adorsys.ssi.sdjwt.SdJwtVerificationOptions;
+import com.adorsys.ssi.sdjwt.exception.SdJwtVerificationException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
@@ -156,7 +159,7 @@ public class SdJwtVP {
     }
 
     public JsonNode getCnfClaim() {
-        return issuerSignedJWT.getPayload().get("cnf");
+        return issuerSignedJWT.getCnfClaim().orElse(null);
     }
 
     public String present(List<String> disclosureDigests, JsonNode keyBindingClaims,
@@ -182,6 +185,26 @@ public class SdJwtVP {
         KeyBindingJWT keyBindingJWT = KeyBindingJWT.from(keyBindingClaims, holdSignatureSignerContext, keyId, jwsAlgorithm, jwsType);
         sb.append(keyBindingJWT.toJws());
         return sb.toString();
+    }
+
+    /**
+     * Verifies SD-JWT presentation.
+     *
+     * @param verificationOptions Options to parametize the verification. A verifier must be specified
+     *                            for validating the Issuer-signed JWT. The caller is responsible for
+     *                            establishing trust in that associated public keys belong to the
+     *                            intended issuer.
+     * @throws SdJwtVerificationException if verification failed
+     */
+    public void verify(SdJwtVerificationOptions verificationOptions) throws SdJwtVerificationException {
+        // If Key Binding is required and a Key Binding JWT is not provided,
+        // the Verifier MUST reject the Presentation.
+        if (keyBindingJWT.isEmpty()) {
+            throw new SdJwtVerificationException("Missing Key Binding JWT");
+        }
+
+        new SdJwtVerificationContext(issuerSignedJWT, disclosures, keyBindingJWT.get())
+                .verifyPresentation(verificationOptions, true);
     }
 
     // Recursively seraches the node with the given value.
