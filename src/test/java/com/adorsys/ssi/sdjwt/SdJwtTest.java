@@ -265,6 +265,61 @@ public class SdJwtTest {
             }
         }
 
+        @Test
+        public void sdJwtVerificationShouldFailIfSdArrayElementIsNotString() throws JsonProcessingException {
+            ObjectNode claimSet = mapper.createObjectNode();
+            claimSet.put("given_name", "John");
+            claimSet.set("_sd", mapper.readTree("[123]"));
+
+            var sdJwt = exampleFlatSdJwtV2(claimSet, DisclosureSpec.builder().build()).build();
+
+            var exception = assertThrows(
+                    SdJwtVerificationException.class,
+                    () -> sdJwt.verify(defaultVerificationOptions()
+                            .build())
+            );
+
+            assertEquals("Unexpected non-string element inside _sd array: 123", exception.getMessage());
+        }
+
+        @Test
+        public void sdJwtVerificationShouldFailIfForbiddenClaimNames() {
+            for (String forbiddenClaimName: List.of("_sd", "...")) {
+                ObjectNode claimSet = mapper.createObjectNode();
+                claimSet.put(forbiddenClaimName, "Value");
+
+                var sdJwt = exampleFlatSdJwtV2(claimSet, DisclosureSpec.builder()
+                        .withUndisclosedClaim(forbiddenClaimName, "eluV5Og3gSNII8EYnsxA_A")
+                        .build()).build();
+
+                var exception = assertThrows(
+                        SdJwtVerificationException.class,
+                        () -> sdJwt.verify(defaultVerificationOptions().build())
+                );
+
+                assertEquals("Disclosure claim name must not be '_sd' or '...'", exception.getMessage());
+            }
+        }
+
+        @Test
+        public void sdJwtVerificationShouldFailIfDuplicateDigestValue() {
+            ObjectNode claimSet = mapper.createObjectNode();
+            claimSet.put("given_name", "John"); // this same field will also be nested
+
+            var sdJwt = exampleFlatSdJwtV2(claimSet, DisclosureSpec.builder()
+                    .withUndisclosedClaim("given_name", "eluV5Og3gSNII8EYnsxA_A")
+                    .withDecoyClaim("G02NSrQfjFXQ7Io09syajA")
+                    .withDecoyClaim("G02NSrQfjFXQ7Io09syajA")
+                    .build()).build();
+
+            var exception = assertThrows(
+                    SdJwtVerificationException.class,
+                    () -> sdJwt.verify(defaultVerificationOptions().build())
+            );
+
+            assertTrue(exception.getMessage().startsWith("A digest was encounted more than once:"));
+        }
+
         private SdJwtVerificationOptions.Builder defaultVerificationOptions() {
             return SdJwtVerificationOptions.builder()
                     .withVerifier(testSettings.issuerVerifierContext.verifier)
@@ -329,6 +384,33 @@ public class SdJwtTest {
                     .withUndisclosedClaim("family_name", "6Ij7tM-a5iVPGboS5tmvVA")
                     .withUndisclosedClaim("email", "eI8ZWm9QnKPpNPeNenHdhQ")
                     .build();
+
+            return SdJwt.builder()
+                    .withDisclosureSpec(disclosureSpec)
+                    .withClaimSet(claimSet)
+                    .withNestedSdJwt(addrSdJWT)
+                    .withSigner(testSettings.issuerSigContext.signer);
+        }
+
+        private SdJwt.Builder exampleSdJwtWithUndisclosedNestedFieldsV2(
+                ObjectNode claimSet, DisclosureSpec disclosureSpec) {
+            ObjectNode addressClaimSet = mapper.createObjectNode();
+            addressClaimSet.put("street_address", "Rue des Oliviers");
+            addressClaimSet.put("city", "Paris");
+            addressClaimSet.put("country", "France");
+
+            DisclosureSpec addrDisclosureSpec = DisclosureSpec.builder()
+                    .withUndisclosedClaim("street_address", "AJx-095VPrpTtN4QMOqROA")
+                    .withUndisclosedClaim("city", "G02NSrQfjFXQ7Io09syajA")
+                    .withDecoyClaim("G02NSrQfjFXQ7Io09syajA")
+                    .build();
+
+            SdJwt addrSdJWT = SdJwt.builder()
+                    .withDisclosureSpec(addrDisclosureSpec)
+                    .withClaimSet(addressClaimSet)
+                    .build();
+
+            claimSet.set("address", addrSdJWT.asNestedPayload());
 
             return SdJwt.builder()
                     .withDisclosureSpec(disclosureSpec)

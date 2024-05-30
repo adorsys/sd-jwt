@@ -285,9 +285,10 @@ public class SdJwt {
         var disclosureMap = computeIssuerSignedJwtDigestDisclosureMap();
 
         // Validate SdJwt digests by attempting full recursive disclosing.
+        Set<String> visitedDigests = new HashSet<>();
         Set<String> visitedDisclosureStrings = new HashSet<>();
         var disclosedPayload = validateViaRecursiveDisclosing(
-                issuerSignedJwt.getPayload(), disclosureMap, visitedDisclosureStrings);
+                issuerSignedJwt.getPayload(), disclosureMap, visitedDigests, visitedDisclosureStrings);
 
         // Validate all disclosures where visited
         validateDisclosuresVisits(visitedDisclosureStrings);
@@ -309,6 +310,7 @@ public class SdJwt {
     private JsonNode validateViaRecursiveDisclosing(
             JsonNode currentNode,
             Map<String, String> disclosureMap,
+            Set<String> visitedDigests,
             Set<String> visitedDisclosureStrings
     ) throws SdJwtVerificationException {
         if (!currentNode.isObject() && !currentNode.isArray()) {
@@ -332,11 +334,12 @@ public class SdJwt {
                     // If no such Disclosure can be found, the digest MUST be ignored.
 
                     var digest = el.asText();
+                    markDigestAsVisited(digest, visitedDigests);
                     var disclosure = disclosureMap.get(digest);
 
                     if (disclosure != null) {
                         // Mark disclosure as visited
-                        markDisclosureAsVisited(disclosure, visitedDisclosureStrings);
+                        visitedDisclosureStrings.add(disclosure);
 
                         // Validate disclosure format
                         var claim = validateSdArrayDigestDisclosureFormat(disclosure);
@@ -375,11 +378,12 @@ public class SdJwt {
                         // If no such Disclosure can be found, the digest MUST be ignored.
 
                         var digest = field.getValue().asText();
+                        markDigestAsVisited(digest, visitedDigests);
                         var disclosure = disclosureMap.get(digest);
 
                         if (disclosure != null) {
                             // Mark disclosure as visited
-                            markDisclosureAsVisited(disclosure, visitedDisclosureStrings);
+                            visitedDisclosureStrings.add(disclosure);
 
                             // Validate disclosure format
                             var claimValue = validateArrayElementDigestDisclosureFormat(disclosure);
@@ -400,14 +404,14 @@ public class SdJwt {
         }
 
         for (JsonNode childNode : currentNode) {
-            validateViaRecursiveDisclosing(childNode, disclosureMap, visitedDisclosureStrings);
+            validateViaRecursiveDisclosing(childNode, disclosureMap, visitedDigests, visitedDisclosureStrings);
         }
 
         return currentNode;
     }
 
     /**
-     * Mark disclosure as visited.
+     * Mark digest as visited.
      *
      * <p>
      * If any digest value is encountered more than once in the Issuer-signed JWT payload
@@ -416,11 +420,11 @@ public class SdJwt {
      *
      * @throws SdJwtVerificationException if not first visit
      */
-    private void markDisclosureAsVisited(String disclosure, Set<String> visitedDisclosureStrings)
+    private void markDigestAsVisited(String digest, Set<String> visitedDigests)
             throws SdJwtVerificationException {
-        if (!visitedDisclosureStrings.add(disclosure)) {
+        if (!visitedDigests.add(digest)) {
             // If add returns false, then it is a duplicate
-            throw new SdJwtVerificationException("A digest was encounted more than once: " + disclosure);
+            throw new SdJwtVerificationException("A digest was encounted more than once: " + digest);
         }
     }
 
