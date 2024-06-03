@@ -129,7 +129,8 @@ public class IssuerSignedJWT extends SdJws {
      * Returns Cnf claim (establishing key binding)
      */
     public Optional<JsonNode> getCnfClaim() {
-        return Optional.of(getPayload().get("cnf"));
+        var cnf = getPayload().get("cnf");
+        return cnf == null ? Optional.empty() : Optional.of(cnf);
     }
 
     /**
