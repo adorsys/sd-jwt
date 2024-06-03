@@ -179,6 +179,10 @@ public class SdJwtVerificationContext {
 
         // Check that the creation time of the Key Binding JWT is within an acceptable window.
         validateKeyBindingJwtTimeClaims(keyBindingJwtVerificationOpts);
+
+        // Determine that the Key Binding JWT is bound to the current transaction and was created
+        // for this Verifier (replay protection) by validating nonce and aud claims.
+        preventKeyBindingJwtReplay(keyBindingJwtVerificationOpts);
     }
 
     /**
@@ -283,8 +287,9 @@ public class SdJwtVerificationContext {
      *
      * @throws SdJwtVerificationException if verification failed
      */
-    private void validateKeyBindingJwtTimeClaims(KeyBindingJwtVerificationOpts keyBindingJwtVerificationOpts)
-            throws SdJwtVerificationException {
+    private void validateKeyBindingJwtTimeClaims(
+            KeyBindingJwtVerificationOpts keyBindingJwtVerificationOpts
+    ) throws SdJwtVerificationException {
         // Check that the creation time of the Key Binding JWT, as determined by the iat claim,
         // is within an acceptable window
 
@@ -560,6 +565,32 @@ public class SdJwtVerificationContext {
             throws SdJwtVerificationException {
         if (visitedDisclosureStrings.size() < disclosures.size()) {
             throw new SdJwtVerificationException("At least one disclosure is not protected by digest");
+        }
+    }
+
+    /**
+     * Run checks for replay protection.
+     *
+     * <p>
+     * Determine that the Key Binding JWT is bound to the current transaction and was created for this
+     * Verifier (replay protection) by validating nonce and aud claims.
+     * </p>
+     *
+     * @throws SdJwtVerificationException if verification failed
+     */
+    private void preventKeyBindingJwtReplay(
+            KeyBindingJwtVerificationOpts keyBindingJwtVerificationOpts
+    ) throws SdJwtVerificationException {
+        JsonNode nonce = keyBindingJwt.getPayload().get("nonce");
+        if (nonce == null || !nonce.isTextual()
+                || !nonce.asText().equals(keyBindingJwtVerificationOpts.getNonce())) {
+            throw new SdJwtVerificationException("Key binding JWT: Unexpected `nonce` value");
+        }
+
+        JsonNode aud = keyBindingJwt.getPayload().get("aud");
+        if (aud == null || !aud.isTextual()
+                || !aud.asText().equals(keyBindingJwtVerificationOpts.getAud())) {
+            throw new SdJwtVerificationException("Key binding JWT: Unexpected `aud` value");
         }
     }
 }
