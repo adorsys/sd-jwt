@@ -203,7 +203,7 @@ public class SdJwtVP {
             IssuerSignedJwtVerificationOpts issuerSignedJwtVerificationOpts,
             KeyBindingJwtVerificationOpts keyBindingJwtVerificationOpts
     ) throws SdJwtVerificationException {
-        new SdJwtVerificationContext(issuerSignedJWT, disclosures, keyBindingJWT.orElse(null))
+        new SdJwtVerificationContext(sdJwtVpString, issuerSignedJWT, disclosures, keyBindingJWT.orElse(null))
                 .verifyPresentation(issuerSignedJwtVerificationOpts, keyBindingJwtVerificationOpts);
     }
 

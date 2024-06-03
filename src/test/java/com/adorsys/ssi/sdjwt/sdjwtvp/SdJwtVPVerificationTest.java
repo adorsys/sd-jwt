@@ -16,7 +16,7 @@ import static org.junit.Assert.assertNotNull;
 /**
  * @author <a href="mailto:Ingrid.Kamga@adorsys.com">Ingrid Kamga</a>
  */
-public class SdJwtVpVerificationTest {
+public class SdJwtVPVerificationTest {
     static ObjectMapper mapper = new ObjectMapper();
     static TestSettings testSettings = TestSettings.getInstance();
 

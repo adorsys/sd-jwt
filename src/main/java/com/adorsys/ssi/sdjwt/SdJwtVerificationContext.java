@@ -30,17 +30,20 @@ import java.util.stream.Collectors;
  * @author <a href="mailto:Ingrid.Kamga@adorsys.com">Ingrid Kamga</a>
  */
 public class SdJwtVerificationContext {
+    private String sdJwtVpString;
 
     private final IssuerSignedJWT issuerSignedJwt;
     private final Map<String, String> disclosures;
     private KeyBindingJWT keyBindingJwt;
 
     public SdJwtVerificationContext(
+            String sdJwtVpString,
             IssuerSignedJWT issuerSignedJwt,
             Map<String, String> disclosures,
             KeyBindingJWT keyBindingJwt) {
         this(issuerSignedJwt, disclosures);
         this.keyBindingJwt = keyBindingJwt;
+        this.sdJwtVpString = sdJwtVpString;
     }
 
     public SdJwtVerificationContext(IssuerSignedJWT issuerSignedJwt, Map<String, String> disclosures) {
@@ -156,8 +159,9 @@ public class SdJwtVerificationContext {
      *
      * @throws SdJwtVerificationException if verification failed
      */
-    private void validateKeyBindingJwt(KeyBindingJwtVerificationOpts keyBindingJwtVerificationOpts)
-            throws SdJwtVerificationException {
+    private void validateKeyBindingJwt(
+            KeyBindingJwtVerificationOpts keyBindingJwtVerificationOpts
+    ) throws SdJwtVerificationException {
         // Check that the typ of the Key Binding JWT is kb+jwt
         validateKeyBindingJwtTyp();
 
@@ -183,6 +187,14 @@ public class SdJwtVerificationContext {
         // Determine that the Key Binding JWT is bound to the current transaction and was created
         // for this Verifier (replay protection) by validating nonce and aud claims.
         preventKeyBindingJwtReplay(keyBindingJwtVerificationOpts);
+
+        // The same hash algorithm as for the Disclosures MUST be used (defined by the _sd_alg element
+        // in the Issuer-signed JWT or the default value, as defined in Section 5.1.1).
+        validateKeyBindingJwtSdHashIntegrity();
+
+        // Check that the Key Binding JWT is a valid JWT in all other respects
+        // -> Covered in part by `keyBindingJwt` being an instance of SdJws?
+        // -> Time claims are checked above
     }
 
     /**
@@ -591,6 +603,35 @@ public class SdJwtVerificationContext {
         if (aud == null || !aud.isTextual()
                 || !aud.asText().equals(keyBindingJwtVerificationOpts.getAud())) {
             throw new SdJwtVerificationException("Key binding JWT: Unexpected `aud` value");
+        }
+    }
+
+    /**
+     * Validate integrity of Key Binding JWT's sd_hash.
+     *
+     * <p>
+     * Calculate the digest over the Issuer-signed JWT and Disclosures and verify that it matches
+     * the value of the sd_hash claim in the Key Binding JWT.
+     * </p>
+     *
+     * @throws SdJwtVerificationException if verification failed
+     */
+    private void validateKeyBindingJwtSdHashIntegrity() throws SdJwtVerificationException {
+        Objects.requireNonNull(sdJwtVpString);
+
+        JsonNode sdHash = keyBindingJwt.getPayload().get("sd_hash");
+        if (sdHash == null || !sdHash.isTextual()) {
+            throw new SdJwtVerificationException("Key binding JWT: Claim `sd_hash` missing or not a string");
+        }
+
+        int lastDelimiterIndex = sdJwtVpString.lastIndexOf(SdJwt.DELIMITER);
+        String toHash = sdJwtVpString.substring(0, lastDelimiterIndex + 1);
+
+        String digest = SdJwtUtils.hashAndBase64EncodeNoPad(
+                toHash.getBytes(), issuerSignedJwt.getSdHashAlg());
+
+        if (!digest.equals(sdHash.asText())) {
+            throw new SdJwtVerificationException("Key binding JWT: Invalid `sd_hash` digest");
         }
     }
 }
