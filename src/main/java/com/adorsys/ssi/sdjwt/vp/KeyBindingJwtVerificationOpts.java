@@ -1,0 +1,107 @@
+package com.adorsys.ssi.sdjwt.vp;
+
+import com.adorsys.ssi.sdjwt.exception.SdJwtVerificationException;
+
+/**
+ * Options for Key Binding JWT verification.
+ *
+ * @author <a href="mailto:Ingrid.Kamga@adorsys.com">Ingrid Kamga</a>
+ */
+public class KeyBindingJwtVerificationOpts {
+    /**
+     * Specifies the Verify's policy whether to check Key Binding
+     */
+    private final boolean keyBindingRequired;
+
+    private final String nonce;
+    private final String aud;
+
+    private final boolean validateExpirationClaim;
+    private final boolean validateNotBeforeClaim;
+
+    public KeyBindingJwtVerificationOpts(
+            boolean keyBindingRequired,
+            String nonce,
+            String aud,
+            boolean validateExpirationClaim,
+            boolean validateNotBeforeClaim) {
+        this.keyBindingRequired = keyBindingRequired;
+        this.nonce = nonce;
+        this.aud = aud;
+        this.validateExpirationClaim = validateExpirationClaim;
+        this.validateNotBeforeClaim = validateNotBeforeClaim;
+    }
+
+    public boolean isKeyBindingRequired() {
+        return keyBindingRequired;
+    }
+
+    public String getNonce() {
+        return nonce;
+    }
+
+    public String getAud() {
+        return aud;
+    }
+
+    public boolean mustValidateExpirationClaim() {
+        return validateExpirationClaim;
+    }
+
+    public boolean mustValidateNotBeforeClaim() {
+        return validateNotBeforeClaim;
+    }
+
+    public static KeyBindingJwtVerificationOpts.Builder builder() {
+        return new KeyBindingJwtVerificationOpts.Builder();
+    }
+
+    public static class Builder {
+        private boolean keyBindingRequired;
+        private String nonce;
+        private String aud;
+        private boolean validateExpirationClaim = true;
+        private boolean validateNotBeforeClaim = true;
+
+        public Builder withKeyBindingRequired(boolean keyBindingRequired) {
+            this.keyBindingRequired = keyBindingRequired;
+            return this;
+        }
+
+        public Builder withNonce(String nonce) {
+            this.nonce = nonce;
+            return this;
+        }
+
+        public Builder withAud(String aud) {
+            this.aud = aud;
+            return this;
+        }
+
+        public Builder withValidateExpirationClaim(boolean validateExpirationClaim) {
+            this.validateExpirationClaim = validateExpirationClaim;
+            return this;
+        }
+
+        public Builder withValidateNotBeforeClaim(boolean validateNotBeforeClaim) {
+            this.validateNotBeforeClaim = validateNotBeforeClaim;
+            return this;
+        }
+
+        public KeyBindingJwtVerificationOpts build() throws SdJwtVerificationException {
+            if (aud == null || nonce == null || nonce.isEmpty()) {
+                throw new SdJwtVerificationException(
+                        "Missing `nonce` and `aud` claims for replay protection"
+                );
+            }
+
+            return new KeyBindingJwtVerificationOpts(
+                    keyBindingRequired,
+                    nonce,
+                    aud,
+                    validateExpirationClaim,
+                    validateNotBeforeClaim
+            );
+        }
+    }
+}

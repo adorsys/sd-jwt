@@ -2,6 +2,7 @@ package com.adorsys.ssi.sdjwt;
 
 import com.adorsys.ssi.sdjwt.exception.SdJwtVerificationException;
 import com.adorsys.ssi.sdjwt.vp.KeyBindingJWT;
+import com.adorsys.ssi.sdjwt.vp.KeyBindingJwtVerificationOpts;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -32,14 +33,14 @@ public class SdJwtVerificationContext {
 
     private final IssuerSignedJWT issuerSignedJwt;
     private final Map<String, String> disclosures;
-    private KeyBindingJWT keyBindingJWT;
+    private KeyBindingJWT keyBindingJwt;
 
     public SdJwtVerificationContext(
             IssuerSignedJWT issuerSignedJwt,
             Map<String, String> disclosures,
-            KeyBindingJWT keyBindingJWT) {
+            KeyBindingJWT keyBindingJwt) {
         this(issuerSignedJwt, disclosures);
-        this.keyBindingJWT = keyBindingJWT;
+        this.keyBindingJwt = keyBindingJwt;
     }
 
     public SdJwtVerificationContext(IssuerSignedJWT issuerSignedJwt, Map<String, String> disclosures) {
@@ -70,15 +71,17 @@ public class SdJwtVerificationContext {
      * - all Disclosures are valid and correspond to a respective digest value in the Issuer-signed JWT
      * (directly in the payload or recursively included in the contents of other Disclosures).
      *
-     * @param verificationOptions Options to parametize the verification. A verifier must be specified
-     *                            for validating the Issuer-signed JWT. The caller is responsible for
-     *                            establishing trust in that associated public keys belong to the
-     *                            intended issuer.
+     * @param issuerSignedJwtVerificationOpts Options to parametize the Issuer-Signed JWT verification. A verifier
+     *                                        must be specified for validating the Issuer-signed JWT. The caller
+     *                                        is responsible for establishing trust in that associated public keys
+     *                                        belong to the intended issuer.
      * @throws SdJwtVerificationException if verification failed
      */
-    public void verifyIssuance(SdJwtVerificationOptions verificationOptions) throws SdJwtVerificationException {
+    public void verifyIssuance(
+            IssuerSignedJwtVerificationOpts issuerSignedJwtVerificationOpts
+    ) throws SdJwtVerificationException {
         // Validate the Issuer-signed JWT.
-        validateIssuerSignedJwt(verificationOptions.getVerifier());
+        validateIssuerSignedJwt(issuerSignedJwtVerificationOpts.getVerifier());
 
         // Validate disclosures.
         var disclosedPayload = validateDisclosuresDigests();
@@ -87,7 +90,7 @@ public class SdJwtVerificationContext {
         // Issuers will typically include claims controlling the validity of the SD-JWT in plaintext in the
         // SD-JWT payload, but there is no guarantee they would do so. Therefore, Verifiers cannot reliably
         // depend on that and need to operate as though security-critical claims might be selectively disclosable.
-        validateTimeClaims(disclosedPayload, verificationOptions);
+        validateIssuerSignedJwtTimeClaims(disclosedPayload, issuerSignedJwtVerificationOpts);
     }
 
     /**
@@ -98,28 +101,31 @@ public class SdJwtVerificationContext {
      * to ensure that if Key Binding is required, the Key Binding JWT is signed by the Holder and valid.
      * </p>
      *
-     * @param verificationOptions Options to parametize the verification. A verifier must be specified
-     *                            for validating the Issuer-signed JWT. The caller is responsible for
-     *                            establishing trust in that associated public keys belong to the
-     *                            intended issuer.
-     * @param keyBindingRequired  Specifies the Verify's policy whether to check Key Binding
+     * @param issuerSignedJwtVerificationOpts Options to parametize the Issuer-Signed JWT verification. A verifier
+     *                                        must be specified for validating the Issuer-signed JWT. The caller
+     *                                        is responsible for establishing trust in that associated public keys
+     *                                        belong to the intended issuer.
+     * @param keyBindingJwtVerificationOpts   Options to parametize the Key Binding JWT verification.
+     *                                        Must, among others, specify the Verify's policy whether
+     *                                        to check Key Binding.
      * @throws SdJwtVerificationException if verification failed
      */
     public void verifyPresentation(
-            SdJwtVerificationOptions verificationOptions, boolean keyBindingRequired
+            IssuerSignedJwtVerificationOpts issuerSignedJwtVerificationOpts,
+            KeyBindingJwtVerificationOpts keyBindingJwtVerificationOpts
     ) throws SdJwtVerificationException {
         // If Key Binding is required and a Key Binding JWT is not provided,
         // the Verifier MUST reject the Presentation.
-        if (keyBindingRequired && keyBindingJWT == null) {
+        if (keyBindingJwtVerificationOpts.isKeyBindingRequired() && keyBindingJwt == null) {
             throw new SdJwtVerificationException("Missing Key Binding JWT");
         }
 
         // Upon receiving a Presentation, in addition to the checks in {@link #verifyIssuance}...
-        verifyIssuance(verificationOptions);
+        verifyIssuance(issuerSignedJwtVerificationOpts);
 
         // Validate Key Binding JWT if required
-        if (keyBindingRequired) {
-            validateKeyBindingJwt(verificationOptions);
+        if (keyBindingJwtVerificationOpts.isKeyBindingRequired()) {
+            validateKeyBindingJwt(keyBindingJwtVerificationOpts);
         }
     }
 
@@ -150,7 +156,7 @@ public class SdJwtVerificationContext {
      *
      * @throws SdJwtVerificationException if verification failed
      */
-    private void validateKeyBindingJwt(SdJwtVerificationOptions verificationOptions)
+    private void validateKeyBindingJwt(KeyBindingJwtVerificationOpts keyBindingJwtVerificationOpts)
             throws SdJwtVerificationException {
         // Check that the typ of the Key Binding JWT is kb+jwt
         validateKeyBindingJwtTyp();
@@ -166,13 +172,13 @@ public class SdJwtVerificationContext {
 
         // Validate the signature over the Key Binding JWT
         try {
-            keyBindingJWT.verifySignature(holderVerifier);
+            keyBindingJwt.verifySignature(holderVerifier);
         } catch (JOSEException e) {
             throw new SdJwtVerificationException("Key binding JWT invalid", e);
         }
 
         // Check that the creation time of the Key Binding JWT is within an acceptable window.
-        validateKeyBindingJwtTimeClaims(verificationOptions);
+        validateKeyBindingJwtTimeClaims(keyBindingJwtVerificationOpts);
     }
 
     /**
@@ -181,8 +187,7 @@ public class SdJwtVerificationContext {
      * @throws SdJwtVerificationException if verification failed
      */
     private void validateKeyBindingJwtTyp() throws SdJwtVerificationException {
-        var typ = keyBindingJWT.getHeader().get("typ");
-        System.out.println(keyBindingJWT.getHeader());
+        var typ = keyBindingJwt.getHeader().get("typ");
         if (typ == null || !typ.isTextual() || !typ.asText().equals(KeyBindingJWT.TYP)) {
             throw new SdJwtVerificationException("Key Binding JWT is not of declared typ " + KeyBindingJWT.TYP);
         }
@@ -230,28 +235,7 @@ public class SdJwtVerificationContext {
     }
 
     /**
-     * Validate key binding JWT time claims.
-     *
-     * <p>
-     * Check that the creation time of the Key Binding JWT, as determined by the iat claim,
-     * is within an acceptable window.
-     * </p>
-     *
-     * @throws SdJwtVerificationException if verification failed
-     */
-    private void validateKeyBindingJwtTimeClaims(SdJwtVerificationOptions verificationOptions)
-            throws SdJwtVerificationException {
-        validateTimeClaims(keyBindingJWT.getPayload(), verificationOptions);
-
-        if (verificationOptions.mustValidateIssuedAtClaim() &&
-                (readTimeClaim(keyBindingJWT.getPayload(), "iat") <
-                        readTimeClaim(issuerSignedJwt.getPayload(), "iat"))) {
-            throw new SdJwtVerificationException("Key binding JWT was issued before Issuer-signed JWT");
-        }
-    }
-
-    /**
-     * Validate time claims.
+     * Validate Issuer-Signed JWT time claims.
      *
      * <p>
      * Check that the SD-JWT is valid using claims such as nbf, iat, and exp in the processed payload.
@@ -260,33 +244,85 @@ public class SdJwtVerificationContext {
      *
      * @throws SdJwtVerificationException if verification failed
      */
-    private void validateTimeClaims(JsonNode payload, SdJwtVerificationOptions verificationOptions)
-            throws SdJwtVerificationException {
+    private void validateIssuerSignedJwtTimeClaims(
+            JsonNode payload,
+            IssuerSignedJwtVerificationOpts issuerSignedJwtVerificationOpts
+    ) throws SdJwtVerificationException {
         long now = Instant.now().getEpochSecond();
 
-        if (verificationOptions.mustValidateIssuedAtClaim()
-                && now < readTimeClaim(payload, "iat")) {
-            throw new SdJwtVerificationException("JWT issued in the future");
+        try {
+            if (issuerSignedJwtVerificationOpts.mustValidateIssuedAtClaim()
+                    && now < SdJwtUtils.readTimeClaim(payload, "iat")) {
+                throw new SdJwtVerificationException("JWT issued in the future");
+            }
+        } catch (SdJwtVerificationException e) {
+            throw new SdJwtVerificationException("Issuer-Signed JWT: Invalid `iat` claim", e);
         }
 
-        if (verificationOptions.mustValidateExpirationClaim()
-                && now >= readTimeClaim(payload, "exp")) {
-            throw new SdJwtVerificationException("JWT has expired");
+        try {
+            if (issuerSignedJwtVerificationOpts.mustValidateExpirationClaim()
+                    && now >= SdJwtUtils.readTimeClaim(payload, "exp")) {
+                throw new SdJwtVerificationException("JWT has expired");
+            }
+        } catch (SdJwtVerificationException e) {
+            throw new SdJwtVerificationException("Issuer-Signed JWT: Invalid `exp` claim", e);
         }
 
-        if (verificationOptions.mustValidateNotBeforeClaim()
-                && now < readTimeClaim(payload, "nbf")) {
-            throw new SdJwtVerificationException("JWT is not yet valid");
+        try {
+            if (issuerSignedJwtVerificationOpts.mustValidateNotBeforeClaim()
+                    && now < SdJwtUtils.readTimeClaim(payload, "nbf")) {
+                throw new SdJwtVerificationException("JWT is not yet valid");
+            }
+        } catch (SdJwtVerificationException e) {
+            throw new SdJwtVerificationException("Issuer-Signed JWT: Invalid `nbf` claim", e);
         }
     }
 
-    private long readTimeClaim(JsonNode payload, String claimName) throws SdJwtVerificationException {
-        JsonNode claim = payload.get(claimName);
-        if (claim == null || !claim.isNumber()) {
-            throw new SdJwtVerificationException("Missing or invalid '" + claimName + "' claim");
+    /**
+     * Validate key binding JWT time claims.
+     *
+     * @throws SdJwtVerificationException if verification failed
+     */
+    private void validateKeyBindingJwtTimeClaims(KeyBindingJwtVerificationOpts keyBindingJwtVerificationOpts)
+            throws SdJwtVerificationException {
+        // Check that the creation time of the Key Binding JWT, as determined by the iat claim,
+        // is within an acceptable window
+
+        try {
+            keyBindingJwt.verifyIssuedAtClaim();
+        } catch (SdJwtVerificationException e) {
+            throw new SdJwtVerificationException("Key binding JWT: Invalid `iat` claim", e);
         }
 
-        return claim.asLong();
+        long keyBindingJwtIat = SdJwtUtils.readTimeClaim(keyBindingJwt.getPayload(), "iat");
+        Long issuerSignedJwtIat = null;
+
+        try {
+            issuerSignedJwtIat = SdJwtUtils.readTimeClaim(keyBindingJwt.getPayload(), "iat");
+        } catch (SdJwtVerificationException ignored) {
+        }
+
+        if (issuerSignedJwtIat != null && keyBindingJwtIat < issuerSignedJwtIat) {
+            throw new SdJwtVerificationException("Key binding JWT was issued before Issuer-signed JWT");
+        }
+
+        // Check other time claims
+
+        try {
+            if (keyBindingJwtVerificationOpts.mustValidateExpirationClaim()) {
+                keyBindingJwt.verifyExpClaim();
+            }
+        } catch (SdJwtVerificationException e) {
+            throw new SdJwtVerificationException("Key binding JWT: Invalid `exp` claim", e);
+        }
+
+        try {
+            if (keyBindingJwtVerificationOpts.mustValidateNotBeforeClaim()) {
+                keyBindingJwt.verifyNotBeforeClaim();
+            }
+        } catch (SdJwtVerificationException e) {
+            throw new SdJwtVerificationException("Key binding JWT: Invalid `nbf` claim", e);
+        }
     }
 
     /**

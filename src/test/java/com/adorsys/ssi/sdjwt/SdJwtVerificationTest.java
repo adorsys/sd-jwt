@@ -37,26 +37,26 @@ public class SdJwtVerificationTest {
                     .withHashAlgorithm(hashAlg)
                     .build();
 
-            sdJwt.verify(defaultVerificationOptions().build());
+            sdJwt.verify(defaultIssuerSignedJwtVerificationOpts().build());
         }
     }
 
     @Test
     public void testSdJwtVerification_SdJwtWithUndisclosedNestedFields() throws SdJwtVerificationException {
         var sdJwt = exampleSdJwtWithUndisclosedNestedFieldsV1().build();
-        sdJwt.verify(defaultVerificationOptions().build());
+        sdJwt.verify(defaultIssuerSignedJwtVerificationOpts().build());
     }
 
     @Test
     public void testSdJwtVerification_SdJwtWithUndisclosedArrayElements() throws Exception {
         var sdJwt = exampleSdJwtWithUndisclosedArrayElementsV1().build();
-        sdJwt.verify(defaultVerificationOptions().build());
+        sdJwt.verify(defaultIssuerSignedJwtVerificationOpts().build());
     }
 
     @Test
     public void testSdJwtVerification_RecursiveSdJwt() throws Exception {
         var sdJwt = exampleRecursiveSdJwtV1().build();
-        sdJwt.verify(defaultVerificationOptions().build());
+        sdJwt.verify(defaultIssuerSignedJwtVerificationOpts().build());
     }
 
     @Test
@@ -67,7 +67,7 @@ public class SdJwtVerificationTest {
 
         var exception = assertThrows(
                 SdJwtVerificationException.class,
-                () -> sdJwt.verify(defaultVerificationOptions().build())
+                () -> sdJwt.verify(defaultIssuerSignedJwtVerificationOpts().build())
         );
 
         assertEquals("Unexpected or insecure hash algorithm: sha-224", exception.getMessage());
@@ -78,7 +78,7 @@ public class SdJwtVerificationTest {
         var sdJwt = exampleFlatSdJwtV1().build();
         var exception = assertThrows(
                 SdJwtVerificationException.class,
-                () -> sdJwt.verify(defaultVerificationOptions()
+                () -> sdJwt.verify(defaultIssuerSignedJwtVerificationOpts()
                         .withVerifier(testSettings.holderVerifierContext.verifier) // wrong verifier
                         .build())
         );
@@ -106,17 +106,18 @@ public class SdJwtVerificationTest {
         for (SdJwt sdJwt : List.of(sdJwtV1, sdJwtV2)) {
             var exception = assertThrows(
                     SdJwtVerificationException.class,
-                    () -> sdJwt.verify(defaultVerificationOptions()
+                    () -> sdJwt.verify(defaultIssuerSignedJwtVerificationOpts()
                             .withValidateExpirationClaim(true)
                             .build())
             );
 
-            assertEquals("JWT has expired", exception.getMessage());
+            assertEquals("Issuer-Signed JWT: Invalid `exp` claim", exception.getMessage());
+            assertEquals("JWT has expired", exception.getCause().getMessage());
         }
     }
 
     @Test
-    public void sdJwtVerificationShouldFail__IfExpired_CaseExpInvalid() {
+    public void sdJwtVerificationShouldFail_IfExpired_CaseExpInvalid() {
         // exp: null
         ObjectNode claimSet1 = mapper.createObjectNode();
         claimSet1.put("given_name", "John");
@@ -136,17 +137,18 @@ public class SdJwtVerificationTest {
         for (SdJwt sdJwt : List.of(sdJwtV1, sdJwtV2)) {
             var exception = assertThrows(
                     SdJwtVerificationException.class,
-                    () -> sdJwt.verify(defaultVerificationOptions()
+                    () -> sdJwt.verify(defaultIssuerSignedJwtVerificationOpts()
                             .withValidateExpirationClaim(true)
                             .build())
             );
 
-            assertEquals("Missing or invalid 'exp' claim", exception.getMessage());
+            assertEquals("Issuer-Signed JWT: Invalid `exp` claim", exception.getMessage());
+            assertEquals("Missing or invalid 'exp' claim", exception.getCause().getMessage());
         }
     }
 
     @Test
-    public void sdJwtVerificationShouldFail__IfIssuedInTheFuture() {
+    public void sdJwtVerificationShouldFail_IfIssuedInTheFuture() {
         long now = Instant.now().getEpochSecond();
 
         ObjectNode claimSet = mapper.createObjectNode();
@@ -164,12 +166,13 @@ public class SdJwtVerificationTest {
         for (SdJwt sdJwt : List.of(sdJwtV1, sdJwtV2)) {
             var exception = assertThrows(
                     SdJwtVerificationException.class,
-                    () -> sdJwt.verify(defaultVerificationOptions()
+                    () -> sdJwt.verify(defaultIssuerSignedJwtVerificationOpts()
                             .withValidateIssuedAtClaim(true)
                             .build())
             );
 
-            assertEquals("JWT issued in the future", exception.getMessage());
+            assertEquals("Issuer-Signed JWT: Invalid `iat` claim", exception.getMessage());
+            assertEquals("JWT issued in the future", exception.getCause().getMessage());
         }
     }
 
@@ -192,12 +195,13 @@ public class SdJwtVerificationTest {
         for (SdJwt sdJwt : List.of(sdJwtV1, sdJwtV2)) {
             var exception = assertThrows(
                     SdJwtVerificationException.class,
-                    () -> sdJwt.verify(defaultVerificationOptions()
+                    () -> sdJwt.verify(defaultIssuerSignedJwtVerificationOpts()
                             .withValidateNotBeforeClaim(true)
                             .build())
             );
 
-            assertEquals("JWT is not yet valid", exception.getMessage());
+            assertEquals("Issuer-Signed JWT: Invalid `nbf` claim", exception.getMessage());
+            assertEquals("JWT is not yet valid", exception.getCause().getMessage());
         }
     }
 
@@ -211,7 +215,7 @@ public class SdJwtVerificationTest {
 
         var exception = assertThrows(
                 SdJwtVerificationException.class,
-                () -> sdJwt.verify(defaultVerificationOptions()
+                () -> sdJwt.verify(defaultIssuerSignedJwtVerificationOpts()
                         .build())
         );
 
@@ -230,7 +234,7 @@ public class SdJwtVerificationTest {
 
             var exception = assertThrows(
                     SdJwtVerificationException.class,
-                    () -> sdJwt.verify(defaultVerificationOptions().build())
+                    () -> sdJwt.verify(defaultIssuerSignedJwtVerificationOpts().build())
             );
 
             assertEquals("Disclosure claim name must not be '_sd' or '...'", exception.getMessage());
@@ -250,14 +254,14 @@ public class SdJwtVerificationTest {
 
         var exception = assertThrows(
                 SdJwtVerificationException.class,
-                () -> sdJwt.verify(defaultVerificationOptions().build())
+                () -> sdJwt.verify(defaultIssuerSignedJwtVerificationOpts().build())
         );
 
         assertTrue(exception.getMessage().startsWith("A digest was encounted more than once:"));
     }
 
-    private SdJwtVerificationOptions.Builder defaultVerificationOptions() {
-        return SdJwtVerificationOptions.builder()
+    private IssuerSignedJwtVerificationOpts.Builder defaultIssuerSignedJwtVerificationOpts() {
+        return IssuerSignedJwtVerificationOpts.builder()
                 .withVerifier(testSettings.issuerVerifierContext.verifier)
                 .withValidateIssuedAtClaim(false)
                 .withValidateExpirationClaim(false)
@@ -320,33 +324,6 @@ public class SdJwtVerificationTest {
                 .withUndisclosedClaim("family_name", "6Ij7tM-a5iVPGboS5tmvVA")
                 .withUndisclosedClaim("email", "eI8ZWm9QnKPpNPeNenHdhQ")
                 .build();
-
-        return SdJwt.builder()
-                .withDisclosureSpec(disclosureSpec)
-                .withClaimSet(claimSet)
-                .withNestedSdJwt(addrSdJWT)
-                .withSigner(testSettings.issuerSigContext.signer);
-    }
-
-    private SdJwt.Builder exampleSdJwtWithUndisclosedNestedFieldsV2(
-            ObjectNode claimSet, DisclosureSpec disclosureSpec) {
-        ObjectNode addressClaimSet = mapper.createObjectNode();
-        addressClaimSet.put("street_address", "Rue des Oliviers");
-        addressClaimSet.put("city", "Paris");
-        addressClaimSet.put("country", "France");
-
-        DisclosureSpec addrDisclosureSpec = DisclosureSpec.builder()
-                .withUndisclosedClaim("street_address", "AJx-095VPrpTtN4QMOqROA")
-                .withUndisclosedClaim("city", "G02NSrQfjFXQ7Io09syajA")
-                .withDecoyClaim("G02NSrQfjFXQ7Io09syajA")
-                .build();
-
-        SdJwt addrSdJWT = SdJwt.builder()
-                .withDisclosureSpec(addrDisclosureSpec)
-                .withClaimSet(addressClaimSet)
-                .build();
-
-        claimSet.set("address", addrSdJWT.asNestedPayload());
 
         return SdJwt.builder()
                 .withDisclosureSpec(disclosureSpec)

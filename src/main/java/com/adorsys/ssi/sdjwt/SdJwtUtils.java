@@ -65,7 +65,7 @@ public class SdJwtUtils {
     }
 
     public static byte[] hash(byte[] bytes, String hashAlg) {
-        MessageDigest digest = null;
+        MessageDigest digest;
         try {
             digest = MessageDigest.getInstance(hashAlg);
         } catch (NoSuchAlgorithmException e) {
@@ -93,6 +93,15 @@ public class SdJwtUtils {
         }
 
         return (ArrayNode) jsonNode;
+    }
+
+    public static long readTimeClaim(JsonNode payload, String claimName) throws SdJwtVerificationException {
+        JsonNode claim = payload.get(claimName);
+        if (claim == null || !claim.isNumber()) {
+            throw new SdJwtVerificationException("Missing or invalid '" + claimName + "' claim");
+        }
+
+        return claim.asLong();
     }
 
     static ArraySpacedPrettyPrinter arraySpacedPrettyPrinter = new ArraySpacedPrettyPrinter();

@@ -3,17 +3,17 @@ package com.adorsys.ssi.sdjwt;
 import com.nimbusds.jose.JWSVerifier;
 
 /**
- * Options for SD-JWT verification.
+ * Options for Issuer-signed JWT verification.
  *
  * @author <a href="mailto:Ingrid.Kamga@adorsys.com">Ingrid Kamga</a>
  */
-public class SdJwtVerificationOptions {
+public class IssuerSignedJwtVerificationOpts {
     private final JWSVerifier verifier;
     private final boolean validateIssuedAtClaim;
     private final boolean validateExpirationClaim;
     private final boolean validateNotBeforeClaim;
 
-    public SdJwtVerificationOptions(
+    public IssuerSignedJwtVerificationOpts(
             JWSVerifier verifier,
             boolean validateIssuedAtClaim,
             boolean validateExpirationClaim,
@@ -40,8 +40,8 @@ public class SdJwtVerificationOptions {
         return validateNotBeforeClaim;
     }
 
-    public static SdJwtVerificationOptions.Builder builder() {
-        return new SdJwtVerificationOptions.Builder();
+    public static IssuerSignedJwtVerificationOpts.Builder builder() {
+        return new IssuerSignedJwtVerificationOpts.Builder();
     }
 
     public static class Builder {
@@ -70,8 +70,8 @@ public class SdJwtVerificationOptions {
             return this;
         }
 
-        public SdJwtVerificationOptions build() {
-            return new SdJwtVerificationOptions(
+        public IssuerSignedJwtVerificationOpts build() {
+            return new IssuerSignedJwtVerificationOpts(
                     verifier,
                     validateIssuedAtClaim,
                     validateExpirationClaim,
