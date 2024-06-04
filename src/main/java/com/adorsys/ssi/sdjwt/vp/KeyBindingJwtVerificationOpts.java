@@ -55,7 +55,7 @@ public class KeyBindingJwtVerificationOpts {
     }
 
     public static class Builder {
-        private boolean keyBindingRequired;
+        private boolean keyBindingRequired = true;
         private String nonce;
         private String aud;
         private boolean validateExpirationClaim = true;

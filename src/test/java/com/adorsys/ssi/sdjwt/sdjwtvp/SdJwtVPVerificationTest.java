@@ -47,6 +47,17 @@ public class SdJwtVPVerificationTest {
     }
 
     @Test
+    public void testVerif_s20_8_sdjwt_with_kb_rsa() throws SdJwtVerificationException {
+        String sdJwtVPString = TestUtils.readFileAsString(getClass(), "sdjwt/s20.8-sdjwt+kb--cnf-rsa.txt");
+        SdJwtVP sdJwtVP = SdJwtVP.of(sdJwtVPString);
+
+        sdJwtVP.verify(
+                defaultIssuerSignedJwtVerificationOpts().build(),
+                defaultKeyBindingJwtVerificationOpts().build()
+        );
+    }
+
+    @Test
     public void testVerifKeyBindingNotRequired() throws SdJwtVerificationException {
         String sdJwtVPString = TestUtils.readFileAsString(getClass(), "sdjwt/s6.2-presented-sdjwtvp.txt");
         SdJwtVP sdJwtVP = SdJwtVP.of(sdJwtVPString);
@@ -260,6 +271,56 @@ public class SdJwtVPVerificationTest {
                         .build(),
                 "Key binding JWT: Invalid `nbf` claim",
                 "jwt not valid yet"
+        );
+    }
+
+    @Test
+    public void testShouldFail_IfCnfNotJwk() {
+        // The cnf claim is not of type jwk
+        String sdJwtVPString = TestUtils.readFileAsString(getClass(), "sdjwt/s20.8-sdjwt+kb--cnf-is-not-jwk.txt");
+        SdJwtVP sdJwtVP = SdJwtVP.of(sdJwtVPString);
+
+        var exception = assertThrows(
+                UnsupportedOperationException.class,
+                () -> sdJwtVP.verify(
+                        defaultIssuerSignedJwtVerificationOpts().build(),
+                        defaultKeyBindingJwtVerificationOpts().build()
+                )
+        );
+
+        assertEquals("Only cnf/jwk claim supported", exception.getMessage());
+    }
+
+    @Test
+    public void testShouldFail_IfCnfJwkCantBeParsed() {
+        testShouldFailGeneric(
+                // The cnf/jwk object has an unrecognized key type
+                "sdjwt/s20.8-sdjwt+kb--cnf-jwk-is-malformed.txt",
+                defaultKeyBindingJwtVerificationOpts().build(),
+                "Malformed cnf/jwk claim",
+                null
+        );
+    }
+
+    @Test
+    public void testShouldFail_IfCnfJwkIsInvalid() {
+        testShouldFailGeneric(
+                // The cnf/jwk is of crv X25519, which is unsupported
+                "sdjwt/s20.8-sdjwt+kb--cnf-jwk-is-invalid.txt",
+                defaultKeyBindingJwtVerificationOpts().build(),
+                "cnf/jwk is unsupported or invalid",
+                null
+        );
+    }
+
+    @Test
+    public void testShouldFail_IfCnfJwkNotDeemedSecure() {
+        testShouldFailGeneric(
+                // HMAC cnf/jwk are not deemed secure
+                "sdjwt/s20.8-sdjwt+kb--cnf-hmac.txt",
+                defaultKeyBindingJwtVerificationOpts().build(),
+                "cnf/jwk alg is unsupported or deemed not secure",
+                null
         );
     }
 

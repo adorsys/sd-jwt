@@ -244,7 +244,7 @@ public class SdJwtVerificationContext {
                 throw new SdJwtVerificationException("cnf/jwk alg is unsupported or deemed not secure");
             }
         } catch (JOSEException e) {
-            throw new SdJwtVerificationException("cnf/jwk is invalid");
+            throw new SdJwtVerificationException("cnf/jwk is unsupported or invalid");
         }
 
         return verifier;
