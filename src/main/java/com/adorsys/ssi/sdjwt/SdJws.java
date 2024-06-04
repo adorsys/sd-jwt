@@ -114,27 +114,29 @@ public abstract class SdJws {
 
     /**
      * Verifies that SD-JWT was issued by one of the provided issuers
+     * @param issuers List of trusted issuers to lowercase
      */
     public void verifyIssClaim(List<String> issuers) throws Exception {
         JsonNode issuer = payload.get("iss");
 
         if (issuer == null) {
             throw new Exception("Missing 'iss' claim");
-        } else if (!issuers.contains(issuer.textValue())) {
+        } else if (!issuers.contains(issuer.textValue().toLowerCase())) {
             throw new Exception("Unknown issuer: " + issuer.textValue());
         }
     }
 
     /**
      * Verifies that SD-JWT vct claim matches the expected one
+     * @param vcts list of supported verifiable credential types to lowercase
      */
-    public void verifyVctClaim(String vct) throws Exception  {
+    public void verifyVctClaim(List<String> vcts) throws Exception  {
         JsonNode vctNode = payload.get("vct");
 
         if (vctNode == null) {
             throw new Exception("Missing 'vct' claim");
-        } else if (!vct.equals(vctNode.textValue())) {
-            throw new Exception("Invalid verifiable credential type: " + vctNode.textValue());
+        } else if (!vcts.contains(vctNode.textValue().toLowerCase())) {
+            throw new Exception("Unsupported verifiable credential type: " + vctNode.textValue());
         }
     }
 

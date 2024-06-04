@@ -122,8 +122,8 @@ public class SdJwsTest {
         JsonNode payload = createPayload();
         ((ObjectNode) payload).put("vct", "IdentityCredential");
         SdJws sdJws = new SdJws(payload) {};
-        var exception = assertThrows(Exception.class, () -> sdJws.verifyVctClaim("PassportCredential"));
-        assertEquals("Invalid verifiable credential type: IdentityCredential", exception.getMessage());
+        var exception = assertThrows(Exception.class, () -> sdJws.verifyVctClaim(List.of("PassportCredential")));
+        assertEquals("Unsupported verifiable credential type: IdentityCredential", exception.getMessage());
     }
 
     @Test
@@ -131,6 +131,6 @@ public class SdJwsTest {
         JsonNode payload = createPayload();
         ((ObjectNode) payload).put("vct", "IdentityCredential");
         SdJws sdJws = new SdJws(payload) {};
-        sdJws.verifyVctClaim("IdentityCredential");
+        sdJws.verifyVctClaim(List.of("IdentityCredential".toLowerCase()));
     }
 }
