@@ -1,7 +1,5 @@
 package com.adorsys.ssi.sdjwt.vp;
 
-import com.adorsys.ssi.sdjwt.exception.SdJwtVerificationException;
-
 /**
  * Options for Key Binding JWT verification.
  *
@@ -88,9 +86,9 @@ public class KeyBindingJwtVerificationOpts {
             return this;
         }
 
-        public KeyBindingJwtVerificationOpts build() throws SdJwtVerificationException {
-            if (aud == null || nonce == null || nonce.isEmpty()) {
-                throw new SdJwtVerificationException(
+        public KeyBindingJwtVerificationOpts build() {
+            if (keyBindingRequired && (aud == null || nonce == null || nonce.isEmpty())) {
+                throw new IllegalArgumentException(
                         "Missing `nonce` and `aud` claims for replay protection"
                 );
             }

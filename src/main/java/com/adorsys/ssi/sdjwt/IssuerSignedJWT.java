@@ -130,7 +130,7 @@ public class IssuerSignedJWT extends SdJws {
      */
     public Optional<JsonNode> getCnfClaim() {
         var cnf = getPayload().get("cnf");
-        return cnf == null ? Optional.empty() : Optional.of(cnf);
+        return Optional.ofNullable(cnf);
     }
 
     /**

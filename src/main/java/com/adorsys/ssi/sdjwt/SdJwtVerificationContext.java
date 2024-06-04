@@ -315,7 +315,7 @@ public class SdJwtVerificationContext {
         Long issuerSignedJwtIat = null;
 
         try {
-            issuerSignedJwtIat = SdJwtUtils.readTimeClaim(keyBindingJwt.getPayload(), "iat");
+            issuerSignedJwtIat = SdJwtUtils.readTimeClaim(issuerSignedJwt.getPayload(), "iat");
         } catch (SdJwtVerificationException ignored) {
         }
 
@@ -518,7 +518,7 @@ public class SdJwtVerificationContext {
 
         // Check if the array has exactly three elements
         if (arrayNode.size() != 3) {
-            throw new SdJwtVerificationException("Disclosure does not contain exactly three elements");
+            throw new SdJwtVerificationException("A field disclosure must contain exactly three elements");
         }
 
         // If the claim name is _sd or ..., the SD-JWT MUST be rejected.
@@ -556,7 +556,7 @@ public class SdJwtVerificationContext {
 
         // Check if the array has exactly two elements
         if (arrayNode.size() != 2) {
-            throw new SdJwtVerificationException("Disclosure does not contain exactly two elements");
+            throw new SdJwtVerificationException("An array element disclosure must contain exactly two elements");
         }
 
         // Return value
