@@ -191,9 +191,9 @@ public class SdJwtVP {
      * Verifies SD-JWT presentation.
      *
      * @param issuerSignedJwtVerificationOpts Options to parametize the verification. A verifier must be specified
-     *                            for validating the Issuer-signed JWT. The caller is responsible for
-     *                            establishing trust in that associated public keys belong to the
-     *                            intended issuer.
+     *                                        for validating the Issuer-signed JWT. The caller is responsible for
+     *                                        establishing trust in that associated public keys belong to the
+     *                                        intended issuer.
      * @param keyBindingJwtVerificationOpts   Options to parametize the Key Binding JWT verification.
      *                                        Must, among others, specify the Verify's policy whether
      *                                        to check Key Binding.
