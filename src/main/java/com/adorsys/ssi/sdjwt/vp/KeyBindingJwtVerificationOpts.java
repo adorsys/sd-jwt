@@ -11,6 +11,11 @@ public class KeyBindingJwtVerificationOpts {
      */
     private final boolean keyBindingRequired;
 
+    /**
+     * Specifies the maximum age (in seconds) of an issued Key Binding
+     */
+    private final int allowedMaxAge;
+
     private final String nonce;
     private final String aud;
 
@@ -19,11 +24,13 @@ public class KeyBindingJwtVerificationOpts {
 
     public KeyBindingJwtVerificationOpts(
             boolean keyBindingRequired,
+            int allowedMaxAge,
             String nonce,
             String aud,
             boolean validateExpirationClaim,
             boolean validateNotBeforeClaim) {
         this.keyBindingRequired = keyBindingRequired;
+        this.allowedMaxAge = allowedMaxAge;
         this.nonce = nonce;
         this.aud = aud;
         this.validateExpirationClaim = validateExpirationClaim;
@@ -32,6 +39,10 @@ public class KeyBindingJwtVerificationOpts {
 
     public boolean isKeyBindingRequired() {
         return keyBindingRequired;
+    }
+
+    public int getAllowedMaxAge() {
+        return allowedMaxAge;
     }
 
     public String getNonce() {
@@ -56,6 +67,7 @@ public class KeyBindingJwtVerificationOpts {
 
     public static class Builder {
         private boolean keyBindingRequired = true;
+        private int allowedMaxAge = 5 * 60;
         private String nonce;
         private String aud;
         private boolean validateExpirationClaim = true;
@@ -63,6 +75,11 @@ public class KeyBindingJwtVerificationOpts {
 
         public Builder withKeyBindingRequired(boolean keyBindingRequired) {
             this.keyBindingRequired = keyBindingRequired;
+            return this;
+        }
+
+        public Builder withAllowedMaxAge(int allowedMaxAge) {
+            this.allowedMaxAge = allowedMaxAge;
             return this;
         }
 
@@ -95,6 +112,7 @@ public class KeyBindingJwtVerificationOpts {
 
             return new KeyBindingJwtVerificationOpts(
                     keyBindingRequired,
+                    allowedMaxAge,
                     nonce,
                     aud,
                     validateExpirationClaim,

@@ -311,16 +311,11 @@ public class SdJwtVerificationContext {
             throw new SdJwtVerificationException("Key binding JWT: Invalid `iat` claim", e);
         }
 
+        long now = Instant.now().getEpochSecond();
         long keyBindingJwtIat = SdJwtUtils.readTimeClaim(keyBindingJwt.getPayload(), "iat");
-        Long issuerSignedJwtIat = null;
 
-        try {
-            issuerSignedJwtIat = SdJwtUtils.readTimeClaim(issuerSignedJwt.getPayload(), "iat");
-        } catch (SdJwtVerificationException ignored) {
-        }
-
-        if (issuerSignedJwtIat != null && keyBindingJwtIat < issuerSignedJwtIat) {
-            throw new SdJwtVerificationException("Key binding JWT was issued before Issuer-signed JWT");
+        if (now - keyBindingJwtIat > keyBindingJwtVerificationOpts.getAllowedMaxAge()) {
+            throw new SdJwtVerificationException("Key binding JWT is too old");
         }
 
         // Check other time claims

@@ -180,9 +180,8 @@ public class SdJwtVPVerificationTest {
         // This hash is not a string
         kbPayload.set("sd_hash", mapper.valueToTree(1234));
 
-        testShouldFailGeneric2(
+        testShouldFailGenericS20(
                 kbPayload,
-                "sdjwt/s20.1-sdjwt+kb.txt",
                 defaultKeyBindingJwtVerificationOpts().build(),
                 "Key binding JWT: Claim `sd_hash` missing or not a string",
                 null
@@ -196,9 +195,8 @@ public class SdJwtVPVerificationTest {
         // This hash makes no sense
         kbPayload.put("sd_hash", "c3FmZHFmZGZlZXNkZmZi");
 
-        testShouldFailGeneric2(
+        testShouldFailGenericS20(
                 kbPayload,
-                "sdjwt/s20.1-sdjwt+kb.txt",
                 defaultKeyBindingJwtVerificationOpts().build(),
                 "Key binding JWT: Invalid `sd_hash` digest",
                 null
@@ -212,9 +210,8 @@ public class SdJwtVPVerificationTest {
         var kbPayload = exampleS20KbPayload();
         kbPayload.set("iat", mapper.valueToTree(now + 1000));
 
-        testShouldFailGeneric2(
+        testShouldFailGenericS20(
                 kbPayload,
-                "sdjwt/s20.1-sdjwt+kb.txt",
                 defaultKeyBindingJwtVerificationOpts().build(),
                 "Key binding JWT: Invalid `iat` claim",
                 "jwt issued in the future"
@@ -222,17 +219,19 @@ public class SdJwtVPVerificationTest {
     }
 
     @Test
-    public void testShouldFail_IfKbIssuedBeforeIssuerSignedJwt() {
+    public void testShouldFail_IfKbTooOld() {
         long issuerSignedJwtIat = 1683000000; // same value in test vector
 
         var kbPayload = exampleS20KbPayload();
-        kbPayload.set("iat", mapper.valueToTree(issuerSignedJwtIat - 1000));
+        // This KB-JWT is then issued more than 60s ago
+        kbPayload.set("iat", mapper.valueToTree(issuerSignedJwtIat - 120));
 
-        testShouldFailGeneric2(
+        testShouldFailGenericS20(
                 kbPayload,
-                "sdjwt/s20.1-sdjwt+kb.txt",
-                defaultKeyBindingJwtVerificationOpts().build(),
-                "Key binding JWT was issued before Issuer-signed JWT",
+                defaultKeyBindingJwtVerificationOpts()
+                        .withAllowedMaxAge(60)
+                        .build(),
+                "Key binding JWT is too old",
                 null
         );
     }
@@ -244,10 +243,8 @@ public class SdJwtVPVerificationTest {
         var kbPayload = exampleS20KbPayload();
         kbPayload.set("exp", mapper.valueToTree(now - 1000));
 
-        testShouldFailGeneric2(
+        testShouldFailGenericS20(
                 kbPayload,
-                // No iat in issuer jwt so this test cover that code branch
-                "sdjwt/s20.4-sdjwt+kb--no-iat-in-issuer-jwt.txt",
                 defaultKeyBindingJwtVerificationOpts()
                         .withValidateExpirationClaim(true)
                         .build(),
@@ -263,9 +260,8 @@ public class SdJwtVPVerificationTest {
         var kbPayload = exampleS20KbPayload();
         kbPayload.set("nbf", mapper.valueToTree(now + 1000));
 
-        testShouldFailGeneric2(
+        testShouldFailGenericS20(
                 kbPayload,
-                "sdjwt/s20.4-sdjwt+kb--no-iat-in-issuer-jwt.txt",
                 defaultKeyBindingJwtVerificationOpts()
                         .withValidateNotBeforeClaim(true)
                         .build(),
@@ -347,9 +343,8 @@ public class SdJwtVPVerificationTest {
         }
     }
 
-    private void testShouldFailGeneric2(
+    private void testShouldFailGenericS20(
             JsonNode kbPayloadSubstitute,
-            String testFilePath,
             KeyBindingJwtVerificationOpts keyBindingJwtVerificationOpts,
             String exceptionMessage,
             String exceptionCauseMessage
@@ -362,7 +357,7 @@ public class SdJwtVPVerificationTest {
                 KeyBindingJWT.TYP
         );
 
-        String sdJwtVPString = TestUtils.readFileAsString(getClass(), testFilePath);
+        String sdJwtVPString = TestUtils.readFileAsString(getClass(), "sdjwt/s20.1-sdjwt+kb.txt");
         SdJwtVP sdJwtVP = SdJwtVP.of(
                 sdJwtVPString.substring(0, sdJwtVPString.lastIndexOf(SdJwt.DELIMITER) + 1)
                 + keyBindingJWT.toJws()
@@ -392,6 +387,7 @@ public class SdJwtVPVerificationTest {
     private KeyBindingJwtVerificationOpts.Builder defaultKeyBindingJwtVerificationOpts() {
         return KeyBindingJwtVerificationOpts.builder()
                 .withKeyBindingRequired(true)
+                .withAllowedMaxAge(Integer.MAX_VALUE)
                 .withNonce("1234567890")
                 .withAud("https://verifier.example.org")
                 .withValidateExpirationClaim(false)
