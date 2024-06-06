@@ -2,6 +2,7 @@
 package com.adorsys.ssi.sdjwt.sdjwtvp;
 
 import com.adorsys.ssi.sdjwt.*;
+import com.adorsys.ssi.sdjwt.vp.KeyBindingJWT;
 import com.adorsys.ssi.sdjwt.vp.SdJwtVP;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -130,7 +131,7 @@ public class SdJwtVPTest {
 
     @Test
     public void testS6_2_PresentationPositive() throws JOSEException, ParseException {
-        String jwsType = "vc+sd-jwt";
+        String jwsType = KeyBindingJWT.TYP;
         String sdJwtVPString = TestUtils.readFileAsString(getClass(), "sdjwt/s6.2-presented-sdjwtvp.txt");
         SdJwtVP sdJwtVP = SdJwtVP.of(sdJwtVPString);
         JsonNode keyBindingClaims = TestUtils.readClaimSet(getClass(), "sdjwt/s6.2-key-binding-claims.json");

@@ -1,6 +1,7 @@
 
 package com.adorsys.ssi.sdjwt;
 
+import com.adorsys.ssi.sdjwt.exception.SdJwtVerificationException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -13,6 +14,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -28,6 +31,7 @@ public class IssuerSignedJWT extends SdJws {
     public IssuerSignedJWT(JsonNode payload, JWSSigner signer, String keyId, JWSAlgorithm jwsAlgorithm, String jwsType) {
         super(payload, signer, keyId, jwsAlgorithm, jwsType);
     }
+
     public IssuerSignedJWT(Base64URL payloadBase64URL, JWSSigner signer, String keyId, JWSAlgorithm jwsAlgorithm, String jwsType) {
         super(payloadBase64URL, signer, keyId, jwsAlgorithm, jwsType);
     }
@@ -121,6 +125,43 @@ public class IssuerSignedJWT extends SdJws {
         return payload;
     }
 
+    /**
+     * Returns Cnf claim (establishing key binding)
+     */
+    public Optional<JsonNode> getCnfClaim() {
+        var cnf = getPayload().get("cnf");
+        return Optional.ofNullable(cnf);
+    }
+
+    /**
+     * Returns declared hash algorithm from SD hash claim.
+     */
+    public String getSdHashAlg() {
+        var hashAlgNode = getPayload().get(CLAIM_NAME_SD_HASH_ALGORITHM);
+        return hashAlgNode == null ? "sha-256" : hashAlgNode.asText();
+    }
+
+    /**
+     * Verifies that the SD hash algorithm is understood and deemed secure.
+     *
+     * @throws SdJwtVerificationException if not
+     */
+    public void verifySdHashAlgorithm() throws SdJwtVerificationException {
+        // Known secure algorithms
+        final Set<String> secureAlgorithms = Set.of(
+                "sha-256", "sha-384", "sha-512",
+                "sha3-256", "sha3-384", "sha3-512"
+        );
+
+        // Read SD hash claim
+        String hashAlg = getSdHashAlg();
+
+        // Safeguard algorithm
+        if (!secureAlgorithms.contains(hashAlg)) {
+            throw new SdJwtVerificationException("Unexpected or insecure hash algorithm: " + hashAlg);
+        }
+    }
+
     // SD-JWT Claims
     public static final String CLAIM_NAME_SELECTIVE_DISCLOSURE = "_sd";
     public static final String CLAIM_NAME_SD_HASH_ALGORITHM = "_sd_alg";
@@ -159,7 +200,7 @@ public class IssuerSignedJWT extends SdJws {
             return this;
         }
 
-        public Builder withKeyId(String keyId){
+        public Builder withKeyId(String keyId) {
             this.keyId = keyId;
             return this;
         }
