@@ -12,6 +12,8 @@ import com.nimbusds.jose.JWSSigner;
  */
 public class KeyBindingJWT extends SdJws {
 
+    public static final String TYP = "kb+jwt";
+
     public KeyBindingJWT(JsonNode payload, JWSSigner signer, String keyId, JWSAlgorithm jwsAlgorithm, String jwsType) {
         super(payload, signer, keyId, jwsAlgorithm, jwsType);
     }

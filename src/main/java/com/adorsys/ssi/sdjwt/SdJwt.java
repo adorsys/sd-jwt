@@ -1,6 +1,14 @@
 
 package com.adorsys.ssi.sdjwt;
 
+import com.adorsys.ssi.sdjwt.exception.SdJwtVerificationException;
+import com.adorsys.ssi.sdjwt.vp.KeyBindingJWT;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeType;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.nimbusds.jose.JWSSigner;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -8,14 +16,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
-import com.adorsys.ssi.sdjwt.vp.KeyBindingJWT;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.JsonNodeType;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.nimbusds.jose.JWSSigner;
 
 /**
  * Main entry class for selective disclosure jwt (SD-JWT).
@@ -28,6 +28,7 @@ public class SdJwt {
     private final IssuerSignedJWT issuerSignedJWT;
     private final List<SdJwtClaim> claims;
     private final List<String> disclosures = new ArrayList<>();
+    private Optional<String> sdJwtString = Optional.empty();
 
     private SdJwt(DisclosureSpec disclosureSpec, JsonNode claimSet, List<SdJwt> nesteSdJwts,
                   Optional<KeyBindingJWT> keyBindingJWT,
@@ -49,11 +50,9 @@ public class SdJwt {
                 .withJwsType(jwsType)
                 .build();
 
-        nesteSdJwts.stream().forEach(nestedJwt -> this.disclosures.addAll(nestedJwt.getDisclosures()));
+        nesteSdJwts.forEach(nestedJwt -> this.disclosures.addAll(nestedJwt.getDisclosures()));
         this.disclosures.addAll(getDisclosureStrings(claims));
     }
-
-    private Optional<String> sdJwtString = Optional.empty();
 
     private List<DecoyClaim> createdDecoyClaims(DisclosureSpec disclosureSpec) {
         return disclosureSpec.getDecoyClaims().stream()
@@ -64,10 +63,7 @@ public class SdJwt {
     /**
      * Prepare to a nested payload to this SD-JWT.
      * <p>
-     * droping the algo claim.
-     *
-     * @param nestedSdJwt
-     * @return
+     * dropping the algo claim.
      */
     public JsonNode asNestedPayload() {
         JsonNode nestedPayload = issuerSignedJWT.getPayload();
@@ -149,8 +145,7 @@ public class SdJwt {
         }
 
         if (decoyArrayElts != null) {
-            decoyArrayElts.entrySet().stream()
-                    .forEach(e -> arrayDisclosureBuilder.withDecoyElt(e.getKey(), e.getValue().getSalt()));
+            decoyArrayElts.forEach((key, value) -> arrayDisclosureBuilder.withDecoyElt(key, value.getSalt()));
         }
 
         return arrayDisclosureBuilder.build();
@@ -179,6 +174,19 @@ public class SdJwt {
 
     public List<String> getDisclosures() {
         return disclosures;
+    }
+
+    /**
+     * Verifies SD-JWT as to whether the Issuer-signed JWT's signature and disclosures are valid.
+     *
+     * @param verificationOpts Options to parametize the Issuer-Signed JWT verification. A verifier
+     *                         must be specified for validating the Issuer-signed JWT. The caller
+     *                         is responsible for establishing trust in that associated public keys
+     *                         belong to the intended issuer.
+     * @throws SdJwtVerificationException if verification failed
+     */
+    public void verify(IssuerSignedJwtVerificationOpts verificationOpts) throws SdJwtVerificationException {
+        new SdJwtVerificationContext(issuerSignedJWT, disclosures).verifyIssuance(verificationOpts);
     }
 
     // builder for SdJwt
@@ -212,7 +220,7 @@ public class SdJwt {
             return this;
         }
 
-        public Builder withKeyId(String keyId){
+        public Builder withKeyId(String keyId) {
             this.keyId = keyId;
             return this;
         }

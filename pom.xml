@@ -1,16 +1,63 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.adorsys.ssi</groupId>
+  <groupId>de.adorsys.ssi</groupId>
   <artifactId>sd-jwt</artifactId>
   <packaging>jar</packaging>
   <version>1.0-SNAPSHOT</version>
-  <name>sd-jwt</name>
-  <url>http://maven.apache.org</url>
+  <name>${project.artifactId}</name>
+  <description>Library for the production, verification and consumption of SD-JWT documents</description>
+  <url>https://github.com/adorsys/sd-jwt</url>
+  <licenses>
+    <license>
+      <name>LGPL 2.1 - GNU Lesser General Public License, version 2.1</name>
+      <url>http://www.gnu.org/licenses/old-licenses/lgpl-2.1</url>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <name>Francis Pouatcha</name>
+      <email>fpo@adorsys.de</email>
+    </developer>
+    <developer>
+      <name>Marco Kuidja</name>
+      <email>kuidjamarco@gmail.com</email>
+    </developer>
+    <developer>
+      <name>Dylane Bengono</name>
+      <email>Dylane.Bengono@adorsys.com</email>
+    </developer>
+    <developer>
+      <name>Armand Meppa</name>
+      <email>Armand.Meppa@adorsys.com</email>
+    </developer>
+    <developer>
+      <name>Ingrid Kamga</name>
+      <email>Ingrid.Kamga@adorsys.com</email>
+    </developer>
+  </developers>
+
+  <scm>
+    <url>scm:git:git@github.com:adorsys/sd-jwt.git</url>
+    <connection>scm:git:git@github.com:adorsys/sd-jwt.git</connection>
+    <developerConnection>scm:git:git@github.com:adorsys/sd-jwt.git</developerConnection>
+    <tag>HEAD</tag>
+  </scm>
+
   <properties>
     <maven.compiler.source>11</maven.compiler.source>
     <maven.compiler.target>11</maven.compiler.target>
   </properties>
+
+  <distributionManagement>
+    <repository>
+      <id>ossrh</id>
+      <name>Central Repository OSSRH</name>
+      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+    </repository>
+  </distributionManagement>
+
   <dependencies>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
@@ -30,4 +77,5 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
+
 </project>

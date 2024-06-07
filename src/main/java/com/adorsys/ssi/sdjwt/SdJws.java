@@ -1,6 +1,7 @@
 
 package com.adorsys.ssi.sdjwt;
 
+import com.adorsys.ssi.sdjwt.exception.SdJwtVerificationException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.util.Base64URL;
@@ -85,30 +86,40 @@ public abstract class SdJws {
         this.jwsString= signedJwt.serialize();
     }
 
+    public JsonNode getHeader() {
+        return SdJwtUtils.mapper.valueToTree(this.signedJwt.getHeader().toJSONObject());
+    }
+
     public void verifySignature(JWSVerifier verifier) throws JOSEException {
         if (!this.signedJwt.verify(verifier)) {
             throw new JOSEException("Invalid JWS signature");
         }
     }
 
-    public void verifyExpClaim() throws JOSEException {
-        verifyTimeClaim("exp", "jwt has expired");
-    }
+    public void verifyIssuedAtClaim() throws SdJwtVerificationException {
+        long now = Instant.now().getEpochSecond();
+        long iat = SdJwtUtils.readTimeClaim(payload, "iat");
 
-    public void verifyNotBeforeClaim() throws JOSEException {
-        verifyTimeClaim("nbf", "jwt not valid yet");
-    }
-
-    private void verifyTimeClaim(String claimName, String errorMessage) throws JOSEException {
-        JsonNode claim = payload.get(claimName);
-        if (claim == null || !claim.isNumber()) {
-            throw new JOSEException("Missing or invalid '" + claimName + "' claim");
+        if (now < iat) {
+            throw new SdJwtVerificationException("jwt issued in the future");
         }
+    }
 
-        long claimTime = claim.asLong();
-        long currentTime = Instant.now().getEpochSecond();
-        if (("exp".equals(claimName) && currentTime >= claimTime) || ("nbf".equals(claimName) && currentTime < claimTime)) {
-            throw new JOSEException(errorMessage);
+    public void verifyExpClaim() throws SdJwtVerificationException {
+        long now = Instant.now().getEpochSecond();
+        long exp = SdJwtUtils.readTimeClaim(payload, "exp");
+
+        if (now >= exp) {
+            throw new SdJwtVerificationException("jwt has expired");
+        }
+    }
+
+    public void verifyNotBeforeClaim() throws SdJwtVerificationException {
+        long now = Instant.now().getEpochSecond();
+        long nbf = SdJwtUtils.readTimeClaim(payload, "nbf");
+
+        if (now < nbf) {
+            throw new SdJwtVerificationException("jwt not valid yet");
         }
     }
 
@@ -116,13 +127,13 @@ public abstract class SdJws {
      * Verifies that SD-JWT was issued by one of the provided issuers
      * @param issuers List of trusted issuers to lowercase
      */
-    public void verifyIssClaim(List<String> issuers) throws Exception {
+    public void verifyIssClaim(List<String> issuers) throws SdJwtVerificationException {
         JsonNode issuer = payload.get("iss");
 
         if (issuer == null) {
-            throw new Exception("Missing 'iss' claim");
+            throw new SdJwtVerificationException("Missing 'iss' claim");
         } else if (!issuers.contains(issuer.textValue().toLowerCase())) {
-            throw new Exception("Unknown issuer: " + issuer.textValue());
+            throw new SdJwtVerificationException("Unknown issuer: " + issuer.textValue());
         }
     }
 
@@ -130,13 +141,13 @@ public abstract class SdJws {
      * Verifies that SD-JWT vct claim matches the expected one
      * @param vcts list of supported verifiable credential types to lowercase
      */
-    public void verifyVctClaim(List<String> vcts) throws Exception  {
+    public void verifyVctClaim(List<String> vcts) throws SdJwtVerificationException  {
         JsonNode vctNode = payload.get("vct");
 
         if (vctNode == null) {
-            throw new Exception("Missing 'vct' claim");
+            throw new SdJwtVerificationException("Missing 'vct' claim");
         } else if (!vcts.contains(vctNode.textValue().toLowerCase())) {
-            throw new Exception("Unsupported verifiable credential type: " + vctNode.textValue());
+            throw new SdJwtVerificationException("Unsupported verifiable credential type: " + vctNode.textValue());
         }
     }
 
