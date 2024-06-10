@@ -104,6 +104,15 @@ public class SdJwtUtils {
         return claim.asLong();
     }
 
+    public static String readClaim(JsonNode payload, String claimName) throws SdJwtVerificationException {
+        JsonNode claim = payload.get(claimName);
+        if (claim == null) {
+            throw new SdJwtVerificationException("Missing '" + claimName + "' claim");
+        }
+
+        return claim.textValue();
+    }
+
     static ArraySpacedPrettyPrinter arraySpacedPrettyPrinter = new ArraySpacedPrettyPrinter();
 
     static class ArraySpacedPrettyPrinter extends MinimalPrettyPrinter {
