@@ -1,6 +1,7 @@
 package de.adorsys.sdjwt;
 
 
+import de.adorsys.sdjwt.exception.SdJwtVerificationException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -34,23 +35,23 @@ public class SdJwsTest {
     }
 
     @Test
-    public void testVerifySignature_WrongPublicKey() throws Exception {
+    public void testVerifySignature_WrongPublicKey() {
         SdJws sdJws = new SdJws(createPayload(), testSesstings.holderSigContext.signer, testSesstings.holderSigContext.keyId, JWSAlgorithm.ES256, "jwt") {
         };
         assertThrows(JOSEException.class, () -> sdJws.verifySignature(testSesstings.issuerVerifierContext.verifier));
     }
 
     @Test
-    public void testVerifyExpClaim_ExpiredJWT() throws JOSEException {
+    public void testVerifyExpClaim_ExpiredJWT() {
         JsonNode payload = createPayload();
         ((ObjectNode) payload).put("exp", Instant.now().minus(1, TimeUnit.HOURS.toChronoUnit()).getEpochSecond());
         SdJws sdJws = new SdJws(payload) {
         };
-        assertThrows(JOSEException.class, sdJws::verifyExpClaim);
+        assertThrows(SdJwtVerificationException.class, sdJws::verifyExpClaim);
     }
 
     @Test
-    public void testVerifyExpClaim_Positive() throws JOSEException {
+    public void testVerifyExpClaim_Positive() throws Exception {
         JsonNode payload = createPayload();
         ((ObjectNode) payload).put("exp", Instant.now().plus(1, TimeUnit.HOURS.toChronoUnit()).getEpochSecond());
         SdJws sdJws = new SdJws(payload) {
@@ -59,16 +60,16 @@ public class SdJwsTest {
     }
 
     @Test
-    public void testVerifyNotBeforeClaim_Negative() throws JOSEException {
+    public void testVerifyNotBeforeClaim_Negative() {
         JsonNode payload = createPayload();
         ((ObjectNode) payload).put("nbf", Instant.now().plus(1, TimeUnit.HOURS.toChronoUnit()).getEpochSecond());
         SdJws sdJws = new SdJws(payload) {
         };
-        assertThrows(JOSEException.class, sdJws::verifyNotBeforeClaim);
+        assertThrows(SdJwtVerificationException.class, sdJws::verifyNotBeforeClaim);
     }
 
     @Test
-    public void testVerifyNotBeforeClaim_Positive() throws JOSEException {
+    public void testVerifyNotBeforeClaim_Positive() throws Exception {
         JsonNode payload = createPayload();
         ((ObjectNode) payload).put("nbf", Instant.now().minus(1, TimeUnit.HOURS.toChronoUnit()).getEpochSecond());
         SdJws sdJws = new SdJws(payload) {
@@ -91,7 +92,7 @@ public class SdJwsTest {
     }
 
     @Test
-    public void testSignedJwsConstruction() throws JOSEException {
+    public void testSignedJwsConstruction() {
         SdJws sdJws = new SdJws(createPayload(), testSesstings.holderSigContext.signer, testSesstings.holderSigContext.keyId, JWSAlgorithm.ES256, "jwt") {
         };
         assertNotNull(sdJws.toJws());

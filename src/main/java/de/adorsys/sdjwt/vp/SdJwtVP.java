@@ -4,6 +4,9 @@ package de.adorsys.sdjwt.vp;
 import de.adorsys.sdjwt.IssuerSignedJWT;
 import de.adorsys.sdjwt.SdJwt;
 import de.adorsys.sdjwt.SdJwtUtils;
+import de.adorsys.sdjwt.SdJwtVerificationContext;
+import de.adorsys.sdjwt.IssuerSignedJwtVerificationOpts;
+import de.adorsys.sdjwt.exception.SdJwtVerificationException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
@@ -156,7 +159,7 @@ public class SdJwtVP {
     }
 
     public JsonNode getCnfClaim() {
-        return issuerSignedJWT.getPayload().get("cnf");
+        return issuerSignedJWT.getCnfClaim().orElse(null);
     }
 
     public String present(List<String> disclosureDigests, JsonNode keyBindingClaims,
@@ -182,6 +185,26 @@ public class SdJwtVP {
         KeyBindingJWT keyBindingJWT = KeyBindingJWT.from(keyBindingClaims, holdSignatureSignerContext, keyId, jwsAlgorithm, jwsType);
         sb.append(keyBindingJWT.toJws());
         return sb.toString();
+    }
+
+    /**
+     * Verifies SD-JWT presentation.
+     *
+     * @param issuerSignedJwtVerificationOpts Options to parametize the verification. A verifier must be specified
+     *                                        for validating the Issuer-signed JWT. The caller is responsible for
+     *                                        establishing trust in that associated public keys belong to the
+     *                                        intended issuer.
+     * @param keyBindingJwtVerificationOpts   Options to parametize the Key Binding JWT verification.
+     *                                        Must, among others, specify the Verify's policy whether
+     *                                        to check Key Binding.
+     * @throws SdJwtVerificationException if verification failed
+     */
+    public void verify(
+            IssuerSignedJwtVerificationOpts issuerSignedJwtVerificationOpts,
+            KeyBindingJwtVerificationOpts keyBindingJwtVerificationOpts
+    ) throws SdJwtVerificationException {
+        new SdJwtVerificationContext(sdJwtVpString, issuerSignedJWT, disclosures, keyBindingJWT.orElse(null))
+                .verifyPresentation(issuerSignedJwtVerificationOpts, keyBindingJwtVerificationOpts);
     }
 
     // Recursively seraches the node with the given value.
