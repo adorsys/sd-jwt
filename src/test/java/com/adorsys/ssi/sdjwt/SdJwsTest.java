@@ -13,8 +13,9 @@ import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.*;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
 
 public class SdJwsTest {
     static TestSettings testSesstings = TestSettings.getInstance();
@@ -99,6 +100,8 @@ public class SdJwsTest {
         assertNotNull(sdJws.toJws());
     }
 
+
+
     @Test
     public void testVerifyIssClaim_Negative() {
         List<String> allowedIssuers = List.of("issuer1@sdjwt.com", "issuer2@sdjwt.com");
@@ -106,7 +109,7 @@ public class SdJwsTest {
         ((ObjectNode) payload).put("iss", "unknown-issuer@sdjwt.com");
         SdJws sdJws = new SdJws(payload) {};
         var exception = assertThrows(SdJwtVerificationException.class, () -> sdJws.verifyIssClaim(allowedIssuers));
-        assertEquals("Unknown issuer: unknown-issuer@sdjwt.com", exception.getMessage());
+        assertEquals("Unknown 'iss' claim value: unknown-issuer@sdjwt.com", exception.getMessage());
     }
 
     @Test
@@ -124,7 +127,7 @@ public class SdJwsTest {
         ((ObjectNode) payload).put("vct", "IdentityCredential");
         SdJws sdJws = new SdJws(payload) {};
         var exception = assertThrows(SdJwtVerificationException.class, () -> sdJws.verifyVctClaim(List.of("PassportCredential")));
-        assertEquals("Unsupported verifiable credential type: IdentityCredential", exception.getMessage());
+        assertEquals("Unknown 'vct' claim value: IdentityCredential", exception.getMessage());
     }
 
     @Test

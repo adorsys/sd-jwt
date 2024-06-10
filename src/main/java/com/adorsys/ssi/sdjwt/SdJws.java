@@ -9,6 +9,7 @@ import com.nimbusds.jose.util.Base64URL;
 import java.io.IOException;
 import java.text.ParseException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -124,30 +125,32 @@ public abstract class SdJws {
     }
 
     /**
-     * Verifies that SD-JWT was issued by one of the provided issuers
-     * @param issuers List of trusted issuers to lowercase
+     * Verifies that SD-JWT was issued by one of the provided issuers. Verification is case-insensitive
+     * @param issuers List of trusted issuers
      */
     public void verifyIssClaim(List<String> issuers) throws SdJwtVerificationException {
-        JsonNode issuer = payload.get("iss");
-
-        if (issuer == null) {
-            throw new SdJwtVerificationException("Missing 'iss' claim");
-        } else if (!issuers.contains(issuer.textValue().toLowerCase())) {
-            throw new SdJwtVerificationException("Unknown issuer: " + issuer.textValue());
-        }
+        verifyClaimAgainstTrustedValues(issuers, "iss");
     }
 
     /**
-     * Verifies that SD-JWT vct claim matches the expected one
-     * @param vcts list of supported verifiable credential types to lowercase
+     * Verifies that SD-JWT vct claim matches the expected one. Verification is case-insensitive
+     * @param vcts list of supported verifiable credential types
      */
     public void verifyVctClaim(List<String> vcts) throws SdJwtVerificationException  {
-        JsonNode vctNode = payload.get("vct");
+        verifyClaimAgainstTrustedValues(vcts, "vct");
+    }
 
-        if (vctNode == null) {
-            throw new SdJwtVerificationException("Missing 'vct' claim");
-        } else if (!vcts.contains(vctNode.textValue().toLowerCase())) {
-            throw new SdJwtVerificationException("Unsupported verifiable credential type: " + vctNode.textValue());
+    private void verifyClaimAgainstTrustedValues(List<String> trustedValues, String claimName)
+            throws SdJwtVerificationException {
+        String claimValue = SdJwtUtils.readClaim(payload, claimName);
+
+        List<String> normalizedValues = new ArrayList<>();
+        for (String value : trustedValues) {
+            normalizedValues.add(value.toLowerCase());
+        }
+
+        if (!normalizedValues.contains(claimValue.toLowerCase())) {
+            throw new SdJwtVerificationException(String.format("Unknown '%s' claim value: %s", claimName, claimValue));
         }
     }
 
