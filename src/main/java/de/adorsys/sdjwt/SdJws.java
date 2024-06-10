@@ -9,6 +9,8 @@ import com.nimbusds.jose.util.Base64URL;
 import java.io.IOException;
 import java.text.ParseException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -119,6 +121,36 @@ public abstract class SdJws {
 
         if (now < nbf) {
             throw new SdJwtVerificationException("jwt not valid yet");
+        }
+    }
+
+    /**
+     * Verifies that SD-JWT was issued by one of the provided issuers. Verification is case-insensitive
+     * @param issuers List of trusted issuers
+     */
+    public void verifyIssClaim(List<String> issuers) throws SdJwtVerificationException {
+        verifyClaimAgainstTrustedValues(issuers, "iss");
+    }
+
+    /**
+     * Verifies that SD-JWT vct claim matches the expected one. Verification is case-insensitive
+     * @param vcts list of supported verifiable credential types
+     */
+    public void verifyVctClaim(List<String> vcts) throws SdJwtVerificationException  {
+        verifyClaimAgainstTrustedValues(vcts, "vct");
+    }
+
+    private void verifyClaimAgainstTrustedValues(List<String> trustedValues, String claimName)
+            throws SdJwtVerificationException {
+        String claimValue = SdJwtUtils.readClaim(payload, claimName);
+
+        List<String> normalizedValues = new ArrayList<>();
+        for (String value : trustedValues) {
+            normalizedValues.add(value.toLowerCase());
+        }
+
+        if (!normalizedValues.contains(claimValue.toLowerCase())) {
+            throw new SdJwtVerificationException(String.format("Unknown '%s' claim value: %s", claimName, claimValue));
         }
     }
 

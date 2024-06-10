@@ -10,8 +10,10 @@ import com.nimbusds.jose.JWSAlgorithm;
 import org.junit.Test;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 
@@ -96,5 +98,43 @@ public class SdJwsTest {
         SdJws sdJws = new SdJws(createPayload(), testSesstings.holderSigContext.signer, testSesstings.holderSigContext.keyId, JWSAlgorithm.ES256, "jwt") {
         };
         assertNotNull(sdJws.toJws());
+    }
+
+
+
+    @Test
+    public void testVerifyIssClaim_Negative() {
+        List<String> allowedIssuers = List.of("issuer1@sdjwt.com", "issuer2@sdjwt.com");
+        JsonNode payload = createPayload();
+        ((ObjectNode) payload).put("iss", "unknown-issuer@sdjwt.com");
+        SdJws sdJws = new SdJws(payload) {};
+        var exception = assertThrows(SdJwtVerificationException.class, () -> sdJws.verifyIssClaim(allowedIssuers));
+        assertEquals("Unknown 'iss' claim value: unknown-issuer@sdjwt.com", exception.getMessage());
+    }
+
+    @Test
+    public void testVerifyIssClaim_Positive() throws SdJwtVerificationException {
+        List<String> allowedIssuers = List.of("issuer1@sdjwt.com", "issuer2@sdjwt.com");
+        JsonNode payload = createPayload();
+        ((ObjectNode) payload).put("iss", "issuer1@sdjwt.com");
+        SdJws sdJws = new SdJws(payload) {};
+        sdJws.verifyIssClaim(allowedIssuers);
+    }
+
+    @Test
+    public void testVerifyVctClaim_Negative() {
+        JsonNode payload = createPayload();
+        ((ObjectNode) payload).put("vct", "IdentityCredential");
+        SdJws sdJws = new SdJws(payload) {};
+        var exception = assertThrows(SdJwtVerificationException.class, () -> sdJws.verifyVctClaim(List.of("PassportCredential")));
+        assertEquals("Unknown 'vct' claim value: IdentityCredential", exception.getMessage());
+    }
+
+    @Test
+    public void testVerifyVctClaim_Positive() throws SdJwtVerificationException {
+        JsonNode payload = createPayload();
+        ((ObjectNode) payload).put("vct", "IdentityCredential");
+        SdJws sdJws = new SdJws(payload) {};
+        sdJws.verifyVctClaim(List.of("IdentityCredential".toLowerCase()));
     }
 }
