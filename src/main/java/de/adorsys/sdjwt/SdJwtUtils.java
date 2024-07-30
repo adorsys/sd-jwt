@@ -113,6 +113,15 @@ public class SdJwtUtils {
         return claim.textValue();
     }
 
+    public static JsonNode deepClone(JsonNode node) {
+        try {
+            byte[] serializedNode = mapper.writeValueAsBytes(node);
+            return mapper.readTree(serializedNode);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     static ArraySpacedPrettyPrinter arraySpacedPrettyPrinter = new ArraySpacedPrettyPrinter();
 
     static class ArraySpacedPrettyPrinter extends MinimalPrettyPrinter {
