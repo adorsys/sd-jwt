@@ -84,7 +84,11 @@ public class SdJwtVP {
         int disclosureEnd = sdJwtString.lastIndexOf(SdJwt.DELIMITER);
 
         String issuerSignedJWTString = sdJwtString.substring(0, disclosureStart);
-        String disclosuresString = sdJwtString.substring(disclosureStart + 1, disclosureEnd);
+        String disclosuresString = "";
+
+        if (disclosureEnd > disclosureStart) {
+            disclosuresString = sdJwtString.substring(disclosureStart + 1, disclosureEnd);
+        }
 
         IssuerSignedJWT issuerSignedJWT = IssuerSignedJWT.fromJws(issuerSignedJWTString);
 
