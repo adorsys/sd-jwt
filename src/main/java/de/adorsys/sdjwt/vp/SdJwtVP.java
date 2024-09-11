@@ -66,6 +66,12 @@ public class SdJwtVP {
         return keyBindingJWT;
     }
 
+    
+    public String getIssuerSignedJWTString() {
+        return getIssuerSignedJWT().toString();
+    }
+
+
     private SdJwtVP(String sdJwtVpString, String hashAlgorithm, IssuerSignedJWT issuerSignedJWT,
                     Map<String, ArrayNode> claims, Map<String, String> disclosures, Map<String, String> recursiveDigests,
                     List<String> ghostDigests, Optional<KeyBindingJWT> keyBindingJWT) {
@@ -82,6 +88,10 @@ public class SdJwtVP {
     public static SdJwtVP of(String sdJwtString) {
         int disclosureStart = sdJwtString.indexOf(SdJwt.DELIMITER);
         int disclosureEnd = sdJwtString.lastIndexOf(SdJwt.DELIMITER);
+
+        if (disclosureStart == -1) {
+            throw new IllegalArgumentException("No disclosure found");
+        }
 
         String issuerSignedJWTString = sdJwtString.substring(0, disclosureStart);
         String disclosuresString = "";

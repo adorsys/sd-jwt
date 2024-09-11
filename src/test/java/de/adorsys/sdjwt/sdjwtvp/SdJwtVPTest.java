@@ -15,7 +15,11 @@ import java.text.ParseException;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * @author <a href="mailto:francis.pouatcha@adorsys.com">Francis Pouatcha</a>
@@ -176,7 +180,8 @@ public class SdJwtVPTest {
         JsonNode keyBindingClaims = TestUtils.readClaimSet(getClass(), "sdjwt/s6.2-key-binding-claims.json");
         // disclose only the given_name
         String presentation = sdJwtVP.present(List.of("jsu9yVulwQQlhFlM_3JlzMaSFzglhQG0DpfayQwLUK4"),
-                keyBindingClaims, testSettings.holderSigContext.signer, testSettings.holderSigContext.keyId, testSettings.jwsAlgorithm, jwsType);
+                keyBindingClaims, testSettings.holderSigContext.signer, testSettings.holderSigContext.keyId,
+                testSettings.jwsAlgorithm, jwsType);
 
         SdJwtVP presenteSdJwtVP = SdJwtVP.of(presentation);
         assertTrue(presenteSdJwtVP.getKeyBindingJWT().isPresent());
@@ -184,6 +189,26 @@ public class SdJwtVPTest {
         // Verify with public key from cnf claim
         presenteSdJwtVP.getKeyBindingJWT().get()
                 .verifySignature(TestSettings.verifierContextFrom(presenteSdJwtVP.getCnfClaim(), "ES256"));
+    }
+
+    @Test
+    public void testOf_validInput() {
+    String sdJwtString = TestUtils.readFileAsString(getClass(), "sdjwt/s6.2-presented-sdjwtvp.txt");
+    SdJwtVP sdJwtVP = SdJwtVP.of(sdJwtString);
+
+    assertNotNull(sdJwtVP);
+    assertEquals(4, sdJwtVP.getDisclosures().size());
+    }
+
+    @Test
+    public void testOf_noDisclosure() {
+        String sdJwtString = "issuer-signed-jwt";
+        try {
+            SdJwtVP.of(sdJwtString);
+            fail("Expected IllegalArgumentException");
+        } catch (IllegalArgumentException e) {
+            assertEquals("No disclosure found", e.getMessage());
+        }
     }
 
 }
