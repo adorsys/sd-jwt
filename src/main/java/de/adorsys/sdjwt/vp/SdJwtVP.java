@@ -66,12 +66,6 @@ public class SdJwtVP {
         return keyBindingJWT;
     }
 
-    
-    public String getIssuerSignedJWTString() {
-        return getIssuerSignedJWT().toString();
-    }
-
-
     private SdJwtVP(String sdJwtVpString, String hashAlgorithm, IssuerSignedJWT issuerSignedJWT,
                     Map<String, ArrayNode> claims, Map<String, String> disclosures, Map<String, String> recursiveDigests,
                     List<String> ghostDigests, Optional<KeyBindingJWT> keyBindingJWT) {
@@ -90,7 +84,7 @@ public class SdJwtVP {
         int disclosureEnd = sdJwtString.lastIndexOf(SdJwt.DELIMITER);
 
         if (disclosureStart == -1) {
-            throw new IllegalArgumentException("No disclosure found");
+            throw new IllegalArgumentException("SD-JWT is malformed, expected to end with " + SdJwt.DELIMITER);
         }
 
         String issuerSignedJWTString = sdJwtString.substring(0, disclosureStart);
