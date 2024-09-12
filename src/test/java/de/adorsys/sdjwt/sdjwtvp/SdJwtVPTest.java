@@ -191,21 +191,21 @@ public class SdJwtVPTest {
 
     @Test
     public void testOf_validInput() {
-    String sdJwtString = TestUtils.readFileAsString(getClass(), "sdjwt/s6.2-presented-sdjwtvp.txt");
-    SdJwtVP sdJwtVP = SdJwtVP.of(sdJwtString);
+        String sdJwtString = TestUtils.readFileAsString(getClass(), "sdjwt/s6.2-presented-sdjwtvp.txt");
+        SdJwtVP sdJwtVP = SdJwtVP.of(sdJwtString);
 
-    assertNotNull(sdJwtVP);
-    assertEquals(4, sdJwtVP.getDisclosures().size());
+        assertNotNull(sdJwtVP);
+        assertEquals(4, sdJwtVP.getDisclosures().size());
     }
 
     @Test
     public void testOf_MalformedSdJwt_ThrowsIllegalArgumentException() {
-    // Given
-    String malformedSdJwt = "issuer-signed-jwt"; // missing delimiter at the end
+        // Given
+        String malformedSdJwt = "issuer-signed-jwt"; // missing delimiter at the end
 
-    // When & Then
-    IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> SdJwtVP.of(malformedSdJwt));
-    assertEquals("SD-JWT is malformed, expected to end with ~", exception.getMessage());
+        // When & Then
+        var exception = assertThrows(IllegalArgumentException.class, () -> SdJwtVP.of(malformedSdJwt));
+        assertEquals("SD-JWT is malformed, expected to end with ~", exception.getMessage());
     }
 
 }
