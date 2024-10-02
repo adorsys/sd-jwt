@@ -15,7 +15,10 @@ import java.text.ParseException;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+
 
 /**
  * @author <a href="mailto:francis.pouatcha@adorsys.com">Francis Pouatcha</a>
@@ -167,7 +170,7 @@ public class SdJwtVPTest {
         // Verify with wrong public key from settings (issuer)
         presenteSdJwtVP.getKeyBindingJWT().get().verifySignature(testSettings.issuerVerifierContext.verifier);
     }
-
+    
     @Test
     public void testS6_2_PresentationPartialDisclosure() throws ParseException, JOSEException {
         String jwsType = "vc+sd-jwt";
@@ -184,6 +187,25 @@ public class SdJwtVPTest {
         // Verify with public key from cnf claim
         presenteSdJwtVP.getKeyBindingJWT().get()
                 .verifySignature(TestSettings.verifierContextFrom(presenteSdJwtVP.getCnfClaim(), "ES256"));
+    }
+
+    @Test
+    public void testOf_validInput() {
+        String sdJwtString = TestUtils.readFileAsString(getClass(), "sdjwt/s6.2-presented-sdjwtvp.txt");
+        SdJwtVP sdJwtVP = SdJwtVP.of(sdJwtString);
+
+        assertNotNull(sdJwtVP);
+        assertEquals(4, sdJwtVP.getDisclosures().size());
+    }
+
+    @Test
+    public void testOf_MalformedSdJwt_ThrowsIllegalArgumentException() {
+        // Given
+        String malformedSdJwt = "issuer-signed-jwt"; // missing delimiter at the end
+
+        // When & Then
+        var exception = assertThrows(IllegalArgumentException.class, () -> SdJwtVP.of(malformedSdJwt));
+        assertEquals("SD-JWT is malformed, expected to end with ~", exception.getMessage());
     }
 
 }
