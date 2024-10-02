@@ -98,12 +98,9 @@ public abstract class SdJws {
     }
 
     public void verifyIssuedAtClaim() throws SdJwtVerificationException {
-        long now = Instant.now().getEpochSecond();
-        long iat = SdJwtUtils.readTimeClaim(payload, "iat");
-
-        if (now < iat) {
-            throw new SdJwtVerificationException("jwt issued in the future");
-        }
+        // The purpose of this method was to check if `iat` is not in the future.
+        // However, this cannot be achieved at high resolution between times provided
+        // by different systems. So we removed our unreliable implementation.
     }
 
     public void verifyExpClaim() throws SdJwtVerificationException {
