@@ -4,7 +4,7 @@
   <groupId>de.adorsys</groupId>
   <artifactId>sd-jwt</artifactId>
   <packaging>jar</packaging>
-  <version>1.2-SNAPSHOT</version>
+  <version>1.2.0-SNAPSHOT</version>
   <name>${project.artifactId}</name>
   <description>Library for the production, verification and consumption of SD-JWT documents</description>
   <url>https://github.com/adorsys/sd-jwt</url>
