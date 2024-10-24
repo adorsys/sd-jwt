@@ -234,7 +234,7 @@ public class SdJwtVPVerificationTest {
                         .withValidateExpirationClaim(true)
                         .build(),
                 "Key binding JWT: Invalid `exp` claim",
-                "jwt has expired"
+                "JWT has expired"
         );
     }
 
@@ -251,7 +251,7 @@ public class SdJwtVPVerificationTest {
                         .withValidateNotBeforeClaim(true)
                         .build(),
                 "Key binding JWT: Invalid `nbf` claim",
-                "jwt not valid yet"
+                "JWT is not yet valid"
         );
     }
 
@@ -365,7 +365,6 @@ public class SdJwtVPVerificationTest {
     private IssuerSignedJwtVerificationOpts.Builder defaultIssuerSignedJwtVerificationOpts() {
         return IssuerSignedJwtVerificationOpts.builder()
                 .withVerifier(testSettings.issuerVerifierContext.verifier)
-                .withValidateIssuedAtClaim(false)
                 .withValidateNotBeforeClaim(false);
     }
 

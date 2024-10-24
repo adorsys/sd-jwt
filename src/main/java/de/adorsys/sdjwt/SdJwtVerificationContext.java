@@ -1,8 +1,5 @@
 package de.adorsys.sdjwt;
 
-import de.adorsys.sdjwt.exception.SdJwtVerificationException;
-import de.adorsys.sdjwt.vp.KeyBindingJWT;
-import de.adorsys.sdjwt.vp.KeyBindingJwtVerificationOpts;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -13,9 +10,11 @@ import com.nimbusds.jose.crypto.Ed25519Verifier;
 import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.KeyType;
+import de.adorsys.sdjwt.exception.SdJwtVerificationException;
+import de.adorsys.sdjwt.vp.KeyBindingJWT;
+import de.adorsys.sdjwt.vp.KeyBindingJwtVerificationOpts;
 
 import java.text.ParseException;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -258,36 +257,31 @@ public class SdJwtVerificationContext {
      * If a required validity-controlling claim is missing, the SD-JWT MUST be rejected.
      * </p>
      *
+     * <p>
+     * Issuers will typically include claims controlling the validity of the SD-JWT in plaintext in the
+     * SD-JWT payload, but there is no guarantee they would do so. Therefore, Verifiers cannot reliably
+     * depend on that and need to operate as though security-critical claims might be selectively disclosable.
+     * </p>
+     *
      * @throws SdJwtVerificationException if verification failed
      */
     private void validateIssuerSignedJwtTimeClaims(
             JsonNode payload,
             IssuerSignedJwtVerificationOpts issuerSignedJwtVerificationOpts
     ) throws SdJwtVerificationException {
-        long now = Instant.now().getEpochSecond();
+        var timeClaimVerifier = new TimeClaimVerifier(issuerSignedJwtVerificationOpts.getLeewaySeconds());
 
         try {
-            if (issuerSignedJwtVerificationOpts.mustValidateIssuedAtClaim()
-                    && now < SdJwtUtils.readTimeClaim(payload, "iat")) {
-                throw new SdJwtVerificationException("JWT issued in the future");
-            }
-        } catch (SdJwtVerificationException e) {
-            throw new SdJwtVerificationException("Issuer-Signed JWT: Invalid `iat` claim", e);
-        }
-
-        try {
-            if (issuerSignedJwtVerificationOpts.mustValidateExpirationClaim()
-                    && now >= SdJwtUtils.readTimeClaim(payload, "exp")) {
-                throw new SdJwtVerificationException("JWT has expired");
+            if (issuerSignedJwtVerificationOpts.mustValidateExpirationClaim()) {
+                timeClaimVerifier.verifyExpClaim(payload);
             }
         } catch (SdJwtVerificationException e) {
             throw new SdJwtVerificationException("Issuer-Signed JWT: Invalid `exp` claim", e);
         }
 
         try {
-            if (issuerSignedJwtVerificationOpts.mustValidateNotBeforeClaim()
-                    && now < SdJwtUtils.readTimeClaim(payload, "nbf")) {
-                throw new SdJwtVerificationException("JWT is not yet valid");
+            if (issuerSignedJwtVerificationOpts.mustValidateNotBeforeClaim()) {
+                timeClaimVerifier.verifyNotBeforeClaim(payload);
             }
         } catch (SdJwtVerificationException e) {
             throw new SdJwtVerificationException("Issuer-Signed JWT: Invalid `nbf` claim", e);
@@ -302,16 +296,12 @@ public class SdJwtVerificationContext {
     private void validateKeyBindingJwtTimeClaims(
             KeyBindingJwtVerificationOpts keyBindingJwtVerificationOpts
     ) throws SdJwtVerificationException {
+        var timeClaimVerifier = new TimeClaimVerifier(keyBindingJwtVerificationOpts.getLeewaySeconds());
+
         // Check that the creation time of the Key Binding JWT, as determined by the iat claim,
         // is within an acceptable window
 
-        try {
-            keyBindingJwt.verifyIssuedAtClaim();
-        } catch (SdJwtVerificationException e) {
-            throw new SdJwtVerificationException("Key binding JWT: Invalid `iat` claim", e);
-        }
-
-        long now = Instant.now().getEpochSecond();
+        long now = timeClaimVerifier.currentTimestamp();
         long keyBindingJwtIat = SdJwtUtils.readTimeClaim(keyBindingJwt.getPayload(), "iat");
 
         if (now - keyBindingJwtIat > keyBindingJwtVerificationOpts.getAllowedMaxAge()) {
@@ -322,7 +312,7 @@ public class SdJwtVerificationContext {
 
         try {
             if (keyBindingJwtVerificationOpts.mustValidateExpirationClaim()) {
-                keyBindingJwt.verifyExpClaim();
+                timeClaimVerifier.verifyExpClaim(keyBindingJwt.getPayload());
             }
         } catch (SdJwtVerificationException e) {
             throw new SdJwtVerificationException("Key binding JWT: Invalid `exp` claim", e);
@@ -330,7 +320,7 @@ public class SdJwtVerificationContext {
 
         try {
             if (keyBindingJwtVerificationOpts.mustValidateNotBeforeClaim()) {
-                keyBindingJwt.verifyNotBeforeClaim();
+                timeClaimVerifier.verifyNotBeforeClaim(keyBindingJwt.getPayload());
             }
         } catch (SdJwtVerificationException e) {
             throw new SdJwtVerificationException("Key binding JWT: Invalid `nbf` claim", e);

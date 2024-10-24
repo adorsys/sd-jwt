@@ -9,27 +9,28 @@ import com.nimbusds.jose.JWSVerifier;
  */
 public class IssuerSignedJwtVerificationOpts {
     private final JWSVerifier verifier;
-    private final boolean validateIssuedAtClaim;
+
     private final boolean validateExpirationClaim;
     private final boolean validateNotBeforeClaim;
 
+    /**
+     * Tolerance window to account for clock skew when checking time claims
+     */
+    private final int leewaySeconds;
+
     public IssuerSignedJwtVerificationOpts(
             JWSVerifier verifier,
-            boolean validateIssuedAtClaim,
             boolean validateExpirationClaim,
-            boolean validateNotBeforeClaim) {
+            boolean validateNotBeforeClaim,
+            int leewaySeconds) {
         this.verifier = verifier;
-        this.validateIssuedAtClaim = validateIssuedAtClaim;
         this.validateExpirationClaim = validateExpirationClaim;
         this.validateNotBeforeClaim = validateNotBeforeClaim;
+        this.leewaySeconds = leewaySeconds;
     }
 
     public JWSVerifier getVerifier() {
         return verifier;
-    }
-
-    public boolean mustValidateIssuedAtClaim() {
-        return validateIssuedAtClaim;
     }
 
     public boolean mustValidateExpirationClaim() {
@@ -40,23 +41,22 @@ public class IssuerSignedJwtVerificationOpts {
         return validateNotBeforeClaim;
     }
 
+    public int getLeewaySeconds() {
+        return leewaySeconds;
+    }
+
     public static IssuerSignedJwtVerificationOpts.Builder builder() {
         return new IssuerSignedJwtVerificationOpts.Builder();
     }
 
     public static class Builder {
         private JWSVerifier verifier;
-        private boolean validateIssuedAtClaim;
         private boolean validateExpirationClaim = true;
         private boolean validateNotBeforeClaim = true;
+        private int leewaySeconds = 10;
 
         public Builder withVerifier(JWSVerifier verifier) {
             this.verifier = verifier;
-            return this;
-        }
-
-        public Builder withValidateIssuedAtClaim(boolean validateIssuedAtClaim) {
-            this.validateIssuedAtClaim = validateIssuedAtClaim;
             return this;
         }
 
@@ -70,12 +70,17 @@ public class IssuerSignedJwtVerificationOpts {
             return this;
         }
 
+        public Builder withLeewaySeconds(int leewaySeconds) {
+            this.leewaySeconds = leewaySeconds;
+            return this;
+        }
+
         public IssuerSignedJwtVerificationOpts build() {
             return new IssuerSignedJwtVerificationOpts(
                     verifier,
-                    validateIssuedAtClaim,
                     validateExpirationClaim,
-                    validateNotBeforeClaim
+                    validateNotBeforeClaim,
+                    leewaySeconds
             );
         }
     }

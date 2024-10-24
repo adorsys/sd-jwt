@@ -22,19 +22,26 @@ public class KeyBindingJwtVerificationOpts {
     private final boolean validateExpirationClaim;
     private final boolean validateNotBeforeClaim;
 
+    /**
+     * Tolerance window to account for clock skew when checking time claims
+     */
+    private final int leewaySeconds;
+
     public KeyBindingJwtVerificationOpts(
             boolean keyBindingRequired,
             int allowedMaxAge,
             String nonce,
             String aud,
             boolean validateExpirationClaim,
-            boolean validateNotBeforeClaim) {
+            boolean validateNotBeforeClaim,
+            int leewaySeconds) {
         this.keyBindingRequired = keyBindingRequired;
         this.allowedMaxAge = allowedMaxAge;
         this.nonce = nonce;
         this.aud = aud;
         this.validateExpirationClaim = validateExpirationClaim;
         this.validateNotBeforeClaim = validateNotBeforeClaim;
+        this.leewaySeconds = leewaySeconds;
     }
 
     public boolean isKeyBindingRequired() {
@@ -61,6 +68,10 @@ public class KeyBindingJwtVerificationOpts {
         return validateNotBeforeClaim;
     }
 
+    public int getLeewaySeconds() {
+        return leewaySeconds;
+    }
+
     public static KeyBindingJwtVerificationOpts.Builder builder() {
         return new KeyBindingJwtVerificationOpts.Builder();
     }
@@ -72,6 +83,7 @@ public class KeyBindingJwtVerificationOpts {
         private String aud;
         private boolean validateExpirationClaim = true;
         private boolean validateNotBeforeClaim = true;
+        private int leewaySeconds = 10;
 
         public Builder withKeyBindingRequired(boolean keyBindingRequired) {
             this.keyBindingRequired = keyBindingRequired;
@@ -103,6 +115,11 @@ public class KeyBindingJwtVerificationOpts {
             return this;
         }
 
+        public Builder withLeewaySeconds(int leewaySeconds) {
+            this.leewaySeconds = leewaySeconds;
+            return this;
+        }
+
         public KeyBindingJwtVerificationOpts build() {
             if (keyBindingRequired && (aud == null || nonce == null || nonce.isEmpty())) {
                 throw new IllegalArgumentException(
@@ -116,7 +133,8 @@ public class KeyBindingJwtVerificationOpts {
                     nonce,
                     aud,
                     validateExpirationClaim,
-                    validateNotBeforeClaim
+                    validateNotBeforeClaim,
+                    leewaySeconds
             );
         }
     }
