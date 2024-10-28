@@ -7,71 +7,32 @@ import com.nimbusds.jose.JWSVerifier;
  *
  * @author <a href="mailto:Ingrid.Kamga@adorsys.com">Ingrid Kamga</a>
  */
-public class IssuerSignedJwtVerificationOpts {
+public class IssuerSignedJwtVerificationOpts extends TimeClaimVerificationOpts {
+
     private final JWSVerifier verifier;
-
-    private final boolean validateExpirationClaim;
-    private final boolean validateNotBeforeClaim;
-
-    /**
-     * Tolerance window to account for clock skew when checking time claims
-     */
-    private final int leewaySeconds;
 
     public IssuerSignedJwtVerificationOpts(
             JWSVerifier verifier,
             boolean validateExpirationClaim,
             boolean validateNotBeforeClaim,
             int leewaySeconds) {
+        super(validateExpirationClaim, validateNotBeforeClaim, leewaySeconds);
         this.verifier = verifier;
-        this.validateExpirationClaim = validateExpirationClaim;
-        this.validateNotBeforeClaim = validateNotBeforeClaim;
-        this.leewaySeconds = leewaySeconds;
     }
 
     public JWSVerifier getVerifier() {
         return verifier;
     }
 
-    public boolean mustValidateExpirationClaim() {
-        return validateExpirationClaim;
+    public static Builder builder() {
+        return new Builder();
     }
 
-    public boolean mustValidateNotBeforeClaim() {
-        return validateNotBeforeClaim;
-    }
-
-    public int getLeewaySeconds() {
-        return leewaySeconds;
-    }
-
-    public static IssuerSignedJwtVerificationOpts.Builder builder() {
-        return new IssuerSignedJwtVerificationOpts.Builder();
-    }
-
-    public static class Builder {
+    public static class Builder extends TimeClaimVerificationOpts.Builder<Builder> {
         private JWSVerifier verifier;
-        private boolean validateExpirationClaim = true;
-        private boolean validateNotBeforeClaim = true;
-        private int leewaySeconds = 10;
 
         public Builder withVerifier(JWSVerifier verifier) {
             this.verifier = verifier;
-            return this;
-        }
-
-        public Builder withValidateExpirationClaim(boolean validateExpirationClaim) {
-            this.validateExpirationClaim = validateExpirationClaim;
-            return this;
-        }
-
-        public Builder withValidateNotBeforeClaim(boolean validateNotBeforeClaim) {
-            this.validateNotBeforeClaim = validateNotBeforeClaim;
-            return this;
-        }
-
-        public Builder withLeewaySeconds(int leewaySeconds) {
-            this.leewaySeconds = leewaySeconds;
             return this;
         }
 

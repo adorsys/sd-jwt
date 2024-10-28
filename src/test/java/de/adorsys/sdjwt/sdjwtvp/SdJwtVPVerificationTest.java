@@ -1,6 +1,10 @@
-
 package de.adorsys.sdjwt.sdjwtvp;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSSigner;
 import de.adorsys.sdjwt.IssuerSignedJwtVerificationOpts;
 import de.adorsys.sdjwt.SdJwt;
 import de.adorsys.sdjwt.TestSettings;
@@ -9,11 +13,6 @@ import de.adorsys.sdjwt.exception.SdJwtVerificationException;
 import de.adorsys.sdjwt.vp.KeyBindingJWT;
 import de.adorsys.sdjwt.vp.KeyBindingJwtVerificationOpts;
 import de.adorsys.sdjwt.vp.SdJwtVP;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.nimbusds.jose.JWSAlgorithm;
-import com.nimbusds.jose.JWSSigner;
 import org.junit.Test;
 
 import java.time.Instant;
@@ -239,6 +238,25 @@ public class SdJwtVPVerificationTest {
     }
 
     @Test
+    public void shouldTolerateExpiredKbWithinLeeway() throws SdJwtVerificationException {
+        long now = Instant.now().getEpochSecond();
+
+        var kbPayload = exampleS20KbPayload();
+        // Expires just 5 seconds ago. Should pass with a leeway of 10 seconds.
+        kbPayload.set("exp", mapper.valueToTree(now - 5));
+
+        SdJwtVP sdJwtVP = exampleSdJwtWithCustomKbPayload(kbPayload);
+
+        sdJwtVP.verify(
+                defaultIssuerSignedJwtVerificationOpts().build(),
+                defaultKeyBindingJwtVerificationOpts()
+                        .withValidateExpirationClaim(true)
+                        .withLeewaySeconds(10)
+                        .build()
+        );
+    }
+
+    @Test
     public void testShouldFail_IfKbNotBeforeTimeYet() {
         long now = Instant.now().getEpochSecond();
 
@@ -252,6 +270,25 @@ public class SdJwtVPVerificationTest {
                         .build(),
                 "Key binding JWT: Invalid `nbf` claim",
                 "JWT is not yet valid"
+        );
+    }
+
+    @Test
+    public void shouldTolerateNotYetValidKbWithinLeeway() throws SdJwtVerificationException {
+        long now = Instant.now().getEpochSecond();
+
+        var kbPayload = exampleS20KbPayload();
+        // Will normally be valid in just 5 seconds ago. Should pass with a leeway of 10 seconds.
+        kbPayload.set("nbf", mapper.valueToTree(now + 5));
+
+        SdJwtVP sdJwtVP = exampleSdJwtWithCustomKbPayload(kbPayload);
+
+        sdJwtVP.verify(
+                defaultIssuerSignedJwtVerificationOpts().build(),
+                defaultKeyBindingJwtVerificationOpts()
+                        .withValidateNotBeforeClaim(true)
+                        .withLeewaySeconds(10)
+                        .build()
         );
     }
 
@@ -334,19 +371,7 @@ public class SdJwtVPVerificationTest {
             String exceptionMessage,
             String exceptionCauseMessage
     ) {
-        KeyBindingJWT keyBindingJWT = KeyBindingJWT.from(
-                kbPayloadSubstitute,
-                testSettings.holderSigContext.signer,
-                "holder",
-                JWSAlgorithm.ES256,
-                KeyBindingJWT.TYP
-        );
-
-        String sdJwtVPString = TestUtils.readFileAsString(getClass(), "sdjwt/s20.1-sdjwt+kb.txt");
-        SdJwtVP sdJwtVP = SdJwtVP.of(
-                sdJwtVPString.substring(0, sdJwtVPString.lastIndexOf(SdJwt.DELIMITER) + 1)
-                + keyBindingJWT.toJws()
-        );
+        SdJwtVP sdJwtVP = exampleSdJwtWithCustomKbPayload(kbPayloadSubstitute);
 
         var exception = assertThrows(
                 SdJwtVerificationException.class,
@@ -376,6 +401,21 @@ public class SdJwtVPVerificationTest {
                 .withAud("https://verifier.example.org")
                 .withValidateExpirationClaim(false)
                 .withValidateNotBeforeClaim(false);
+    }
+
+    private SdJwtVP exampleSdJwtWithCustomKbPayload(JsonNode kbPayloadSubstitute) {
+        KeyBindingJWT keyBindingJWT = KeyBindingJWT.from(
+                kbPayloadSubstitute,
+                testSettings.holderSigContext.signer,
+                "holder",
+                JWSAlgorithm.ES256,
+                KeyBindingJWT.TYP
+        );
+
+        String sdJwtVPString = TestUtils.readFileAsString(getClass(), "sdjwt/s20.1-sdjwt+kb.txt");
+        String sdJwtWithoutKb = sdJwtVPString.substring(0, sdJwtVPString.lastIndexOf(SdJwt.DELIMITER) + 1);
+
+        return SdJwtVP.of(sdJwtWithoutKb + keyBindingJWT.toJws());
     }
 
     private ObjectNode exampleS20KbPayload() {
