@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import de.adorsys.sdjwt.exception.SdJwtVerificationException;
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 
 public class TimeClaimVerifierTest {
@@ -30,7 +31,10 @@ public class TimeClaimVerifierTest {
         ObjectNode payload = SdJwtUtils.mapper.createObjectNode();
         payload.put("exp", CURRENT_TIMESTAMP - 100); // Expired 100 seconds ago
 
-        assertThrows(SdJwtVerificationException.class, () -> timeClaimVerifier.verifyExpClaim(payload));
+        var exception = assertThrows(SdJwtVerificationException.class,
+                () -> timeClaimVerifier.verifyExpClaim(payload));
+
+        assertEquals("JWT has expired", exception.getMessage());
     }
 
     @Test
@@ -55,7 +59,10 @@ public class TimeClaimVerifierTest {
         ObjectNode payload = SdJwtUtils.mapper.createObjectNode();
         payload.put("nbf", CURRENT_TIMESTAMP + 100); // Not valid for another 100 seconds
 
-        assertThrows(SdJwtVerificationException.class, () -> timeClaimVerifier.verifyNotBeforeClaim(payload));
+        var exception = assertThrows(SdJwtVerificationException.class,
+                () -> timeClaimVerifier.verifyNotBeforeClaim(payload));
+
+        assertEquals("JWT is not yet valid", exception.getMessage());
     }
 
     @Test
