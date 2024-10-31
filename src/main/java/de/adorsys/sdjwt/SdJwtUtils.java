@@ -16,6 +16,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -96,6 +97,8 @@ public class SdJwtUtils {
     }
 
     public static long readTimeClaim(JsonNode payload, String claimName) throws SdJwtVerificationException {
+        Objects.requireNonNull(payload);
+
         JsonNode claim = payload.get(claimName);
         if (claim == null || !claim.isNumber()) {
             throw new SdJwtVerificationException("Missing or invalid '" + claimName + "' claim");
