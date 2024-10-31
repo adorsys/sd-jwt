@@ -155,35 +155,6 @@ public class SdJwtVerificationTest {
     }
 
     @Test
-    public void sdJwtVerificationShouldFail_IfIssuedInTheFuture() {
-        long now = Instant.now().getEpochSecond();
-
-        ObjectNode claimSet = mapper.createObjectNode();
-        claimSet.put("given_name", "John");
-        claimSet.put("iat", now + 1000); // issued in the future
-
-        // Exp claim is plain
-        var sdJwtV1 = exampleFlatSdJwtV2(claimSet, DisclosureSpec.builder().build()).build();
-        // Exp claim is undisclosed
-        var sdJwtV2 = exampleFlatSdJwtV2(claimSet, DisclosureSpec.builder()
-                .withRedListedClaimNames(DisclosureRedList.of(Set.of()))
-                .withUndisclosedClaim("iat", "eluV5Og3gSNII8EYnsxA_A")
-                .build()).build();
-
-        for (SdJwt sdJwt : List.of(sdJwtV1, sdJwtV2)) {
-            var exception = assertThrows(
-                    SdJwtVerificationException.class,
-                    () -> sdJwt.verify(defaultIssuerSignedJwtVerificationOpts()
-                            .withValidateIssuedAtClaim(true)
-                            .build())
-            );
-
-            assertEquals("Issuer-Signed JWT: Invalid `iat` claim", exception.getMessage());
-            assertEquals("JWT issued in the future", exception.getCause().getMessage());
-        }
-    }
-
-    @Test
     public void sdJwtVerificationShouldFail__IfNbfInvalid() {
         long now = Instant.now().getEpochSecond();
 
@@ -270,7 +241,6 @@ public class SdJwtVerificationTest {
     private IssuerSignedJwtVerificationOpts.Builder defaultIssuerSignedJwtVerificationOpts() {
         return IssuerSignedJwtVerificationOpts.builder()
                 .withVerifier(testSettings.issuerVerifierContext.verifier)
-                .withValidateIssuedAtClaim(false)
                 .withValidateExpirationClaim(false)
                 .withValidateNotBeforeClaim(false);
     }

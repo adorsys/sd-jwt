@@ -8,7 +8,6 @@ import com.nimbusds.jose.util.Base64URL;
 
 import java.io.IOException;
 import java.text.ParseException;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -94,30 +93,6 @@ public abstract class SdJws {
     public void verifySignature(JWSVerifier verifier) throws JOSEException {
         if (!this.signedJwt.verify(verifier)) {
             throw new JOSEException("Invalid JWS signature");
-        }
-    }
-
-    public void verifyIssuedAtClaim() throws SdJwtVerificationException {
-        // The purpose of this method was to check if `iat` is not in the future.
-        // However, this cannot be achieved at high resolution between times provided
-        // by different systems. So we removed our unreliable implementation.
-    }
-
-    public void verifyExpClaim() throws SdJwtVerificationException {
-        long now = Instant.now().getEpochSecond();
-        long exp = SdJwtUtils.readTimeClaim(payload, "exp");
-
-        if (now >= exp) {
-            throw new SdJwtVerificationException("jwt has expired");
-        }
-    }
-
-    public void verifyNotBeforeClaim() throws SdJwtVerificationException {
-        long now = Instant.now().getEpochSecond();
-        long nbf = SdJwtUtils.readTimeClaim(payload, "nbf");
-
-        if (now < nbf) {
-            throw new SdJwtVerificationException("jwt not valid yet");
         }
     }
 

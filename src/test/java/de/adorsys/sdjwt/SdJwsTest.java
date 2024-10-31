@@ -44,42 +44,6 @@ public class SdJwsTest {
     }
 
     @Test
-    public void testVerifyExpClaim_ExpiredJWT() {
-        JsonNode payload = createPayload();
-        ((ObjectNode) payload).put("exp", Instant.now().minus(1, TimeUnit.HOURS.toChronoUnit()).getEpochSecond());
-        SdJws sdJws = new SdJws(payload) {
-        };
-        assertThrows(SdJwtVerificationException.class, sdJws::verifyExpClaim);
-    }
-
-    @Test
-    public void testVerifyExpClaim_Positive() throws Exception {
-        JsonNode payload = createPayload();
-        ((ObjectNode) payload).put("exp", Instant.now().plus(1, TimeUnit.HOURS.toChronoUnit()).getEpochSecond());
-        SdJws sdJws = new SdJws(payload) {
-        };
-        sdJws.verifyExpClaim();
-    }
-
-    @Test
-    public void testVerifyNotBeforeClaim_Negative() {
-        JsonNode payload = createPayload();
-        ((ObjectNode) payload).put("nbf", Instant.now().plus(1, TimeUnit.HOURS.toChronoUnit()).getEpochSecond());
-        SdJws sdJws = new SdJws(payload) {
-        };
-        assertThrows(SdJwtVerificationException.class, sdJws::verifyNotBeforeClaim);
-    }
-
-    @Test
-    public void testVerifyNotBeforeClaim_Positive() throws Exception {
-        JsonNode payload = createPayload();
-        ((ObjectNode) payload).put("nbf", Instant.now().minus(1, TimeUnit.HOURS.toChronoUnit()).getEpochSecond());
-        SdJws sdJws = new SdJws(payload) {
-        };
-        sdJws.verifyNotBeforeClaim();
-    }
-
-    @Test
     public void testPayloadJwsConstruction() {
         SdJws sdJws = new SdJws(createPayload()) {
         };
