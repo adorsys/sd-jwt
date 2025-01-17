@@ -5,6 +5,11 @@ on:
       - main
       - 22-release-the-new-version-of-the-sdjwt-library-to-maven-repository
 
+permissions:
+  contents: write
+  actions: write
+  id-token: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -38,6 +43,7 @@ jobs:
       GPG_SECRET_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
       GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       GIT_USER_NAME: ${{ vars.GIT_USER_NAME }}
 
     steps:
@@ -51,20 +57,24 @@ jobs:
           distribution: 'temurin'
           server-id: sonatype
           server-username: MAVEN_USERNAME
-          server-password: MAVEN_PASSWORD           
+          server-password: MAVEN_PASSWORD   
+          
+      - name: Set up Git for authentication
+        run: |
+          git config --global url."https://${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
 
       - name: Set up GPG for signing
         run: |
           echo "$GPG_SECRET_KEY" | gpg --batch --import
           echo "use-agent" >> ~/.gnupg/gpg.conf
           echo "pinentry-mode loopback" >> ~/.gnupg/gpg.conf
-          
+
       - name: Set up Git user for release commit
         run: |
           git config --global user.name "$GIT_USER_NAME"
-          git config --global user.email "$GIT_USER_EMAIL"      
+          git config --global user.email "$GIT_USER_EMAIL"
 
       - name: Build, sign, and release
         run: mvn clean release:prepare release:perform -Dgpg.passphrase="$GPG_PASSPHRASE"
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${GITHUB_TOKEN}
