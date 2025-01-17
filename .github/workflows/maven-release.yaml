@@ -1,14 +1,7 @@
 name: Publish package to the Maven Central Repository
 on:
-  push:
-    branches:
-      - main
-      - 22-release-the-new-version-of-the-sdjwt-library-to-maven-repository
-
-permissions:
-  contents: write
-  actions: write
-  id-token: write
+  release:
+    types: [created]
 
 jobs:
   build:
@@ -42,7 +35,6 @@ jobs:
       GPG_PASSPHRASE: ${{ secrets.GPG_KEY_PASSPHRASE }}
       GPG_SECRET_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
       GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
-      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       GIT_USER_NAME: ${{ vars.GIT_USER_NAME }}
 
@@ -76,5 +68,3 @@ jobs:
 
       - name: Build, sign, and release
         run: mvn clean release:prepare release:perform -Dgpg.passphrase="$GPG_PASSPHRASE"
-        env:
-          GITHUB_TOKEN: ${GITHUB_TOKEN}
