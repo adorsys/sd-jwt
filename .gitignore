@@ -33,5 +33,9 @@ replay_pid*
 *.iml
 !.idea/icon.png
 
+# VsCode
+###################
+.vscode
+
 # mvn
 target
