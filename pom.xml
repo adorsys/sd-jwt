@@ -95,6 +95,15 @@
               <nexusUrl>https://oss.sonatype.org/</nexusUrl>
               <autoReleaseAfterClose>true</autoReleaseAfterClose>
             </configuration>
+            <executions>
+              <execution>
+                <id>close-and-release</id>
+                <goals>
+                  <goal>close</goal>
+                  <goal>release</goal>
+                </goals>
+              </execution>
+            </executions>
           </plugin>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>

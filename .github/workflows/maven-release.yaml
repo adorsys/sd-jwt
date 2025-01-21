@@ -66,3 +66,8 @@ jobs:
 
       - name: Build, sign, and release
         run: mvn clean release:prepare release:perform -Dgpg.passphrase="$GPG_PASSPHRASE"
+
+      - name: Close and Release OSSRH Staging Repository
+        run: |
+          mvn nexus-staging:close
+          mvn nexus-staging:release
